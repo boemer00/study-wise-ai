@@ -3,6 +3,7 @@
 .localized
 .idea/
 .vscode/
+raw_data/
 *.log
 *.backup
 *.bak
