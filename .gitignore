@@ -12,6 +12,13 @@
 .project
 .settings/
 .buildpath
+*.pdf
+*.docx
+*.doc
+*.xls
+*.xlsx
+*.ppt
+*.pptx
 
 # macOS
 .DS_Store
