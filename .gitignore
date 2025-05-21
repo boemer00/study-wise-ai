@@ -1,0 +1,249 @@
+# General
+.DS_Store
+.localized
+.idea/
+.vscode/
+*.log
+*.backup
+*.bak
+*.swp
+*~
+.sass-cache/
+.project
+.settings/
+.buildpath
+
+# macOS
+.DS_Store
+.Spotlight-V100
+.Trashes
+__MACOSX
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*.o
+*.so
+*.lo
+*.la
+*.pyc
+.fuse_hidden*
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
+
+# Python
+__pycache__/
+*.pyc
+*.pyd
+.Python
+env/
+.env
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache/
+nosetests.xml
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+target/
+build/
+.gradle/
+.project
+.classpath
+.settings/
+bin/
+!src/main/resources/
+!src/main/webapp/
+
+# C/C++
+*.o
+*.obj
+*.ko
+*.mod
+*.d
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.exp
+*.ilk
+*.pdb
+*.out
+*.app
+*.lo
+*.la
+*.slo
+*.su
+*.rej
+*.bak
+*.stackdump
+core
+*.cpc
+
+# Ruby
+.bundle/
+vendor/bundle/
+.rvmrc
+.rbenv-version
+capybara-*.html
+.byebug_history
+
+# PHP
+vendor/
+composer.lock
+.env
+
+# Go
+*.exe
+*.test
+*.prof
+
+# Frontend (various)
+dist/
+build/
+.parcel-cache/
+.vuepress/dist/
+.nuxt/
+.next/
+
+# IDE specific
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.project
+.classpath
+.settings/
+*.komodoproject
+*.kdev4
+.DS_Store
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.bak
+pom.xml.versionsBackup
+pom.xml.releaseBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+tmp/
+*.tmp
+*.bak
+*.rej
+*.scc
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
+.env.development
+.env.production
+.env.local
+.env.*.local
+
+# Docker
+Dockerfile.rej
+Dockerfile.bak
+*.log
+
+# Terraform
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.backup
+crash.log
+override.tf
+override.tf.json
+.terraformrc
+terraform.rc
+
+# Serverless
+.serverless/
+
+# Gatsby
+.cache/
+public/
+
+# SvelteKit
+.svelte-kit/
+build/
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Remix
+build/
+public/build/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.brf
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.nav
+*.snm
+*.vrb
+_minted*
+*.synctex.gz
+*.fdb_latexmk
+*.fls
