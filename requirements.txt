@@ -1,0 +1,10 @@
+openai>=1.5.0
+python-dotenv>=1.0.0
+langchain>=0.0.267
+PyMuPDF>=1.22.5  # For PDF processing (fitz)
+python-docx>=0.8.11  # For DOCX processing
+python-pptx>=0.6.21  # For PPT/PPTX processing
+requests>=2.30.0  # For URL downloads
+pytest>=7.3.1  # For testing
+pytest-mock>=3.10.0  # For mocking in tests
+requests-mock>=1.10.0  # For mocking HTTP requests in tests
