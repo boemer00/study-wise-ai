@@ -1,0 +1,310 @@
+[
+  {
+    "question": "What is YOLO in the context of object detection?",
+    "answer": "YOLO (You Only Look Once) is a real-time object detection system that frames object detection as a regression problem to spatially separated bounding boxes and associated class probabilities. A single neural network predicts bounding boxes and class probabilities directly from full images in one evaluation.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "neural networks"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO differ from traditional object detection methods?",
+    "answer": "Traditional object detection systems repurpose classifiers to perform detection, evaluating the classifier at various locations and scales in a test image. YOLO, on the other hand, treats object detection as a regression problem and uses a single neural network to predict bounding boxes and class probabilities directly from full images in one evaluation.",
+    "tags": [
+      "YOLO",
+      "object detection"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the performance of the base YOLO model?",
+    "answer": "The base YOLO model can process images in real-time at 45 frames per second.",
+    "tags": [
+      "YOLO",
+      "performance"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is Fast YOLO and how does its performance compare to the base YOLO model?",
+    "answer": "Fast YOLO is a smaller version of the YOLO network that can process 155 frames per second, which is significantly faster than the base YOLO model. Despite its speed, Fast YOLO still achieves double the mAP (mean Average Precision) of other real-time detectors.",
+    "tags": [
+      "Fast YOLO",
+      "performance"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What are the potential applications of fast, accurate object detection algorithms like YOLO?",
+    "answer": "Fast, accurate object detection algorithms like YOLO could enable computers to drive cars without specialized sensors, assistive devices to convey real-time scene information to human users, and unlock the potential for general purpose, responsive robotic systems.",
+    "tags": [
+      "YOLO",
+      "applications"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO perform compared to other detection methods like DPM and R-CNN?",
+    "answer": "YOLO makes more localization errors but is less likely to predict false positives on background. It outperforms other detection methods, including DPM and R-CNN, when generalizing from natural images to other domains like artwork.",
+    "tags": [
+      "YOLO",
+      "performance",
+      "comparison"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the YOLO Detection System?",
+    "answer": "YOLO (You Only Look Once) is an object detection system that reframes object detection as a single regression problem, straight from image pixels to bounding box coordinates and class probabilities. It uses a single convolutional network to simultaneously predict multiple bounding boxes and class probabilities for those boxes.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "convolutional neural networks"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What are the advantages of the YOLO Detection System?",
+    "answer": "YOLO is extremely fast and can process streaming video in real-time with less than 25 milliseconds of latency. It achieves more than twice the mean average precision of other real-time systems. It also reasons globally about the image when making predictions, which makes it less prone to errors when objects are small or uncommon.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "real-time systems"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO differ from traditional object detection methods?",
+    "answer": "Traditional methods first generate potential bounding boxes in an image and then run a classifier on these proposed boxes. After classification, post-processing is used to refine the bounding boxes, eliminate duplicate detections, and rescore the boxes based on other objects in the scene. YOLO, on the other hand, uses a single regression problem to predict bounding box coordinates and class probabilities directly from image pixels.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "traditional methods"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is non-max suppression in the context of the YOLO Detection System?",
+    "answer": "Non-max suppression is a technique used in the post-processing stage of object detection to refine the bounding boxes, eliminate duplicate detections, and rescore the boxes based on other objects in the scene.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "non-max suppression"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the role of a convolutional network in the YOLO Detection System?",
+    "answer": "In the YOLO Detection System, a single convolutional network is used to simultaneously predict multiple bounding boxes and class probabilities for those boxes. This network is trained on full images and directly optimizes detection performance.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "convolutional networks"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does it mean that YOLO 'reasons globally' about an image?",
+    "answer": "YOLO 'reasons globally' about an image means that it considers the entire image when making predictions, rather than focusing on individual regions or objects. This approach helps it to make more accurate predictions, especially when objects are small or uncommon.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "global reasoning"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the main advantage of YOLO over sliding window and region proposal-based techniques?",
+    "answer": "YOLO sees the entire image during training and test time, so it implicitly encodes contextual information about classes as well as their appearance. This allows it to make fewer background errors compared to other methods like Fast R-CNN.",
+    "tags": [
+      "YOLO",
+      "object detection",
+      "machine learning"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO perform when applied to new domains or unexpected inputs?",
+    "answer": "YOLO is highly generalizable, meaning it performs well when applied to new domains or unexpected inputs. For example, when trained on natural images and tested on artwork, YOLO outperforms top detection methods.",
+    "tags": [
+      "YOLO",
+      "generalizability",
+      "machine learning"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is a limitation of YOLO?",
+    "answer": "While YOLO can quickly identify objects in images, it struggles to precisely localize some objects, especially small ones. This means it lags behind state-of-the-art detection systems in accuracy.",
+    "tags": [
+      "YOLO",
+      "limitations",
+      "object detection"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO's unified detection system work?",
+    "answer": "YOLO's system divides the input image into an S \u00d7 S grid. Each grid cell predicts B bounding boxes and confidence scores for those boxes. The confidence scores reflect how confident the model is that the box contains an object and also how accurate it thinks the box is that it predicts.",
+    "tags": [
+      "YOLO",
+      "unified detection",
+      "bounding box",
+      "confidence score"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does each bounding box predicted by YOLO consist of?",
+    "answer": "Each bounding box predicted by YOLO consists of 5 predictions: x, y, w, h, and confidence. The (x, y) coordinates represent the center of the box relative to the bounds of the grid cell. The width and height are predicted relative to the whole image.",
+    "tags": [
+      "YOLO",
+      "bounding box",
+      "predictions"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How does YOLO define confidence?",
+    "answer": "YOLO defines confidence as the product of the probability of an object existing in a cell and the Intersection Over Union (IOU) between the predicted box and the ground truth. If no object exists in that cell, the confidence scores should be zero.",
+    "tags": [
+      "YOLO",
+      "confidence",
+      "IOU"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does the (x, y) coordinates represent in the context of bounding boxes in object detection?",
+    "answer": "The (x, y) coordinates represent the center of the bounding box relative to the bounds of the grid cell.",
+    "tags": [
+      "object detection",
+      "bounding box",
+      "coordinates"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does the width and height of a bounding box represent in object detection?",
+    "answer": "The width and height of a bounding box are predicted relative to the whole image.",
+    "tags": [
+      "object detection",
+      "bounding box",
+      "width",
+      "height"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does the confidence prediction represent in object detection?",
+    "answer": "The confidence prediction represents the Intersection over Union (IOU) between the predicted bounding box and any ground truth box.",
+    "tags": [
+      "object detection",
+      "confidence prediction",
+      "IOU"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the role of the grid cell in object detection?",
+    "answer": "Each grid cell predicts conditional class probabilities, Pr(Classi|Object). These probabilities are conditioned on the grid cell containing an object. Only one set of class probabilities is predicted per grid cell, regardless of the number of boxes B.",
+    "tags": [
+      "object detection",
+      "grid cell",
+      "class probabilities"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How are class-specific confidence scores calculated in object detection?",
+    "answer": "At test time, the conditional class probabilities and the individual box confidence predictions are multiplied, which gives class-specific confidence scores for each box. These scores encode both the probability of that class appearing in the box and how well the predicted box fits the object.",
+    "tags": [
+      "object detection",
+      "class-specific confidence scores",
+      "test time"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the architecture of the YOLO model?",
+    "answer": "The YOLO model is implemented as a convolutional neural network with 24 convolutional layers followed by 2 fully connected layers. The architecture is inspired by the GoogLeNet model for image classification.",
+    "tags": [
+      "YOLO",
+      "convolutional neural network",
+      "GoogLeNet"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the difference between YOLO and Fast YOLO?",
+    "answer": "Fast YOLO uses a neural network with fewer convolutional layers (9 instead of 24) and fewer filters in those layers. Other than the size of the network, all training and testing parameters are the same between YOLO and Fast YOLO.",
+    "tags": [
+      "YOLO",
+      "Fast YOLO",
+      "convolutional neural network"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What is the architecture of the detection network described in the text?",
+    "answer": "The detection network has 24 convolutional layers followed by 2 fully connected layers. It also includes alternating 1x1 convolutional layers to reduce the feature space from preceding layers.",
+    "tags": [
+      "convolutional neural networks",
+      "architecture",
+      "deep learning"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "How is the detection network pretrained?",
+    "answer": "The convolutional layers of the network are pretrained on the ImageNet 1000-class competition dataset. This involves using the first 20 convolutional layers followed by an average-pooling layer and a fully connected layer.",
+    "tags": [
+      "pretraining",
+      "convolutional neural networks",
+      "ImageNet"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What modifications are made to the pretrained network for detection?",
+    "answer": "Four convolutional layers and two fully connected layers with randomly initialized weights are added to the pretrained network. The input resolution of the network is also increased from 224x224 to 448x448 to capture fine-grained visual information.",
+    "tags": [
+      "convolutional neural networks",
+      "detection",
+      "pretraining"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What does the final layer of the network predict?",
+    "answer": "The final layer of the network predicts both class probabilities and bounding box coordinates. The bounding box width and height are normalized by the image width and height so that they fall between 0 and 1. The bounding box x and y coordinates are parametrized to be offsets of a particular grid cell location so they are also bounded between 0 and 1.",
+    "tags": [
+      "convolutional neural networks",
+      "detection",
+      "bounding box"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What activation function is used in the network?",
+    "answer": "A linear activation function is used for the final layer and all other layers use a leaky rectified linear activation function.",
+    "tags": [
+      "activation function",
+      "leaky ReLU",
+      "deep learning"
+    ],
+    "level": "intermediate"
+  },
+  {
+    "question": "What loss function is used to optimize the network?",
+    "answer": "Sum-squared error is used to optimize the network. This is because it is easy to optimize, even though it does not perfectly align with the goal of maximizing average precision. It weights localization error equally with classification error which may not be ideal.",
+    "tags": [
+      "loss function",
+      "optimization",
+      "sum-squared error"
+    ],
+    "level": "intermediate"
+  }
+]
