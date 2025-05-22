@@ -255,3 +255,4 @@ _minted*
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+flashcards_*.json
