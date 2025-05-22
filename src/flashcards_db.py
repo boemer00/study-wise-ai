@@ -83,13 +83,22 @@ def get_flashcards(
     result = query.execute()
 
     # Post-process for tag filtering if needed
-    # (This is done in Python because JSONB array filtering is complex)
     data = result.data
-    if tags:
-        data = [
-            card for card in data
-            if any(tag in card.get('tags', []) for tag in tags)
-        ]
+    if tags and data:
+        # Convert search tags to lowercase for case-insensitive comparison
+        search_tags_lower = [tag.lower() for tag in tags]
+
+        filtered_data = []
+        for card in data:
+            card_tags = card.get('tags', [])
+            # Convert card tags to lowercase for comparison
+            card_tags_lower = [t.lower() for t in card_tags]
+
+            # Check if any search tag exactly matches any card tag (case-insensitive)
+            if any(search_tag in card_tags_lower for search_tag in search_tags_lower):
+                filtered_data.append(card)
+
+        data = filtered_data
 
     return data
 

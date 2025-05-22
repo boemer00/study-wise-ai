@@ -37,6 +37,11 @@ def list_flashcards(limit: int, offset: int, level: Optional[str], tags: Optiona
         tags: List of tags to filter by
     """
     try:
+        # If tags are provided, use a higher limit to ensure we find matches
+        if tags and limit < 100:
+            print(f"Note: Increasing search limit to 100 to find matches for tags: {', '.join(tags)}")
+            limit = 100
+
         cards = get_flashcards(limit=limit, offset=offset, level=level, tags=tags)
         print(f"Found {len(cards)} flashcards:")
         for i, card in enumerate(cards, 1):
