@@ -61,7 +61,7 @@ def setup_weaviate_schema(args) -> None:
     pass
 
 
-def test_weaviate_connection(args) -> None:
+def check_weaviate_connection(args) -> None:
     """
     Test connection to Weaviate instance.
 
@@ -266,7 +266,7 @@ Examples:
         if args.command == "setup-schema":
             setup_weaviate_schema(args)
         elif args.command == "test-connection":
-            test_weaviate_connection(args)
+            check_weaviate_connection(args)
         elif args.command == "sync-documents":
             sync_documents_to_weaviate(args)
         elif args.command == "upload":
