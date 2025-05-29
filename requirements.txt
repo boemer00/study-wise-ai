@@ -8,3 +8,8 @@ requests>=2.30.0  # For URL downloads
 pytest>=7.3.1  # For testing
 pytest-mock>=3.10.0  # For mocking in tests
 requests-mock>=1.10.0  # For mocking HTTP requests in tests
+# Weaviate dependencies
+weaviate-client>=3.25.0  # Weaviate Python client
+fastapi>=0.104.0  # For API endpoints
+uvicorn>=0.24.0  # ASGI server for FastAPI
+python-multipart>=0.0.6  # For file uploads in FastAPI
