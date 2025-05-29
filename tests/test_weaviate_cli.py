@@ -16,7 +16,7 @@ from src.weaviate_cli import (
     load_environment,
     create_weaviate_client,
     setup_weaviate_schema,
-    test_weaviate_connection,
+    check_weaviate_connection,
     sync_documents_to_weaviate,
     upload_document_to_weaviate,
     search_documents,
@@ -83,12 +83,12 @@ class TestWeaviateCLI:
 
     def test_test_weaviate_connection_success(self, mock_args):
         """Test successful connection test."""
-        # TODO: Test connection success
+        # TODO: Test check_weaviate_connection success
         pass
 
     def test_test_weaviate_connection_failure(self, mock_args):
         """Test connection test failure."""
-        # TODO: Test connection failure
+        # TODO: Test check_weaviate_connection failure
         pass
 
     def test_sync_documents_to_weaviate_success(self, mock_args):
