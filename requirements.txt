@@ -8,8 +8,18 @@ requests>=2.30.0  # For URL downloads
 pytest>=7.3.1  # For testing
 pytest-mock>=3.10.0  # For mocking in tests
 requests-mock>=1.10.0  # For mocking HTTP requests in tests
+pytest-asyncio>=0.21.0  # For async testing
+pytest-xdist>=3.2.0  # For parallel test execution
 # Weaviate dependencies
 weaviate-client>=3.25.0  # Weaviate Python client
 fastapi>=0.104.0  # For API endpoints
 uvicorn>=0.24.0  # ASGI server for FastAPI
 python-multipart>=0.0.6  # For file uploads in FastAPI
+# Supabase dependencies
+supabase>=2.0.0  # Supabase Python client
+postgrest>=0.13.0  # PostgreSQL REST API client
+# Integration testing dependencies
+reportlab>=4.0.0  # For PDF generation in tests
+faker>=20.0.0  # For generating realistic test data
+psutil>=5.9.0  # For system monitoring in performance tests
+memory-profiler>=0.61.0  # For memory usage testing
