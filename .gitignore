@@ -257,3 +257,4 @@ _minted*
 *.fls
 flashcards_*.json
 __pycache__/
+.vite/
