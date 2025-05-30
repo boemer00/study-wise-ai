@@ -1,0 +1,47 @@
+# FastAPI Backend Requirements for StudyWise AI
+
+# FastAPI Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Request/Response handling
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP Client
+httpx==0.25.2
+
+# File uploads
+aiofiles==23.2.1
+
+# Rate limiting
+slowapi==0.1.9
+
+# Logging
+structlog==23.2.0
+
+# Environment management
+python-dotenv==1.0.0
+
+# Database (using existing Supabase)
+supabase==2.3.4
+
+# Vector Database (using existing Weaviate)
+weaviate-client==4.4.1
+
+# AI/ML (using existing OpenAI)
+openai==1.6.1
+
+# Core dependencies from main requirements
+asyncio
+typing-extensions
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0

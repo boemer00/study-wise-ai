@@ -7,6 +7,7 @@ including document storage, semantic search, and hybrid search capabilities.
 
 import os
 import logging
+import json
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
 from dataclasses import dataclass
@@ -62,6 +63,13 @@ def create_weaviate_client(
 
     if not weaviate_url:
         raise ValueError("WEAVIATE_URL must be provided or set in environment variables")
+
+    # Ensure URL has proper protocol for cloud instances
+    if not weaviate_url.startswith(('http://', 'https://')):
+        if 'localhost' in weaviate_url or '127.0.0.1' in weaviate_url:
+            weaviate_url = f"http://{weaviate_url}"
+        else:
+            weaviate_url = f"https://{weaviate_url}"
 
     if not local and not weaviate_api_key:
         raise ValueError("WEAVIATE_API_KEY must be provided for cloud instances")
@@ -148,7 +156,8 @@ class WeaviateClient:
 
     def create_schema(self) -> bool:
         """
-        Create the Document schema in Weaviate.
+        Create the Document schema in Weaviate for storing document chunks.
+        Updated to support the conversational RAG system requirements.
 
         Returns:
             True if schema created successfully, False otherwise
@@ -159,13 +168,23 @@ class WeaviateClient:
                 self.logger.info("Document collection already exists")
                 return True
 
-            # Create Document collection
+            # Create Document collection for document chunks
             collection = self.client.collections.create(
                 name="Document",
                 vectorizer_config=wvc.config.Configure.Vectorizer.text2vec_openai(
-                    model="text-embedding-3-small"
+                    model="text-embedding-3-small"  # Use available model
                 ),
                 properties=[
+                    wvc.config.Property(
+                        name="document_id",
+                        data_type=wvc.config.DataType.TEXT,
+                        description="ID of the parent document"
+                    ),
+                    wvc.config.Property(
+                        name="chunk_id",
+                        data_type=wvc.config.DataType.TEXT,
+                        description="Unique ID for this chunk"
+                    ),
                     wvc.config.Property(
                         name="title",
                         data_type=wvc.config.DataType.TEXT,
@@ -174,7 +193,12 @@ class WeaviateClient:
                     wvc.config.Property(
                         name="content",
                         data_type=wvc.config.DataType.TEXT,
-                        description="Document content"
+                        description="Chunk content"
+                    ),
+                    wvc.config.Property(
+                        name="page_number",
+                        data_type=wvc.config.DataType.NUMBER,
+                        description="Page number in the document"
                     ),
                     wvc.config.Property(
                         name="source",
@@ -182,19 +206,14 @@ class WeaviateClient:
                         description="Document source (file path, URL, etc.)"
                     ),
                     wvc.config.Property(
-                        name="tags",
-                        data_type=wvc.config.DataType.TEXT_ARRAY,
-                        description="Document tags"
-                    ),
-                    wvc.config.Property(
-                        name="supabase_id",
+                        name="metadata",
                         data_type=wvc.config.DataType.TEXT,
-                        description="Corresponding Supabase record ID"
+                        description="Additional metadata as JSON string"
                     ),
                     wvc.config.Property(
                         name="created_at",
                         data_type=wvc.config.DataType.DATE,
-                        description="Document creation timestamp"
+                        description="Chunk creation timestamp"
                     ),
                 ]
             )
@@ -205,6 +224,162 @@ class WeaviateClient:
         except Exception as e:
             self.logger.error(f"Failed to create schema: {e}")
             return False
+
+    async def search_similar_chunks(
+        self,
+        query_vector: Optional[List[float]] = None,
+        query_text: Optional[str] = None,
+        limit: int = 10,
+        where_clause: Optional[Dict[str, Any]] = None,
+        distance_threshold: float = 0.7
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for similar document chunks using vector similarity.
+        This method is specifically required by the conversational RAG system.
+
+        Args:
+            query_vector: Pre-computed query embedding vector
+            query_text: Text query (will be embedded automatically)
+            limit: Maximum number of results
+            where_clause: Optional filter conditions
+            distance_threshold: Maximum distance threshold for results
+
+        Returns:
+            List of chunk results with conversational RAG expected format
+        """
+        try:
+            collection = self.client.collections.get("Document")
+
+            # Build where filter if provided
+            where_filter = None
+            if where_clause:
+                where_filter = self._build_where_filter(where_clause)
+
+            # Perform search based on input type
+            if query_vector:
+                # Vector similarity search
+                if where_filter:
+                    response = collection.query.near_vector(
+                        near_vector=query_vector,
+                        limit=limit,
+                        where=where_filter,
+                        return_metadata=wvc.query.MetadataQuery(distance=True)
+                    )
+                else:
+                    response = collection.query.near_vector(
+                        near_vector=query_vector,
+                        limit=limit,
+                        return_metadata=wvc.query.MetadataQuery(distance=True)
+                    )
+            elif query_text:
+                # Text-based semantic search
+                if where_filter:
+                    response = collection.query.near_text(
+                        query=query_text,
+                        limit=limit,
+                        where=where_filter,
+                        return_metadata=wvc.query.MetadataQuery(distance=True)
+                    )
+                else:
+                    response = collection.query.near_text(
+                        query=query_text,
+                        limit=limit,
+                        return_metadata=wvc.query.MetadataQuery(distance=True)
+                    )
+            else:
+                raise ValueError("Either query_vector or query_text must be provided")
+
+            # Convert to format expected by conversational RAG
+            results = []
+            for obj in response.objects:
+                # Get distance and convert to similarity if needed
+                distance = getattr(obj.metadata, 'distance', 0.5)
+
+                # Skip results beyond threshold
+                if distance > distance_threshold:
+                    continue
+
+                result = {
+                    'document_id': obj.properties.get('document_id', ''),
+                    'chunk_id': obj.properties.get('chunk_id', str(obj.uuid)),
+                    'title': obj.properties.get('title', ''),
+                    'content': obj.properties.get('content', ''),
+                    'page_number': obj.properties.get('page_number'),
+                    'metadata': self._parse_metadata(obj.properties.get('metadata', '{}')),
+                    '_additional': {
+                        'distance': float(distance),
+                        'id': str(obj.uuid)
+                    }
+                }
+                results.append(result)
+
+            self.logger.debug(f"Found {len(results)} similar chunks")
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Chunk search failed: {e}")
+            return []
+
+    def _build_where_filter(self, where_clause: Dict[str, Any]) -> wvc.query.Filter:
+        """
+        Build Weaviate where filter from dictionary specification.
+
+        Args:
+            where_clause: Filter specification
+
+        Returns:
+            Weaviate Filter object
+        """
+        try:
+            if "operator" in where_clause:
+                operator = where_clause["operator"]
+
+                if operator == "And":
+                    operands = where_clause.get("operands", [])
+                    if len(operands) >= 2:
+                        filter_obj = self._build_where_filter(operands[0])
+                        for operand in operands[1:]:
+                            filter_obj = filter_obj & self._build_where_filter(operand)
+                        return filter_obj
+
+                elif operator == "Or":
+                    operands = where_clause.get("operands", [])
+                    if len(operands) >= 2:
+                        filter_obj = self._build_where_filter(operands[0])
+                        for operand in operands[1:]:
+                            filter_obj = filter_obj | self._build_where_filter(operand)
+                        return filter_obj
+
+                elif operator == "Equal":
+                    path = where_clause.get("path", [""])
+                    value = where_clause.get("valueText", "")
+                    return wvc.query.Filter.by_property(path[0]).equal(value)
+
+                elif operator == "NotEqual":
+                    path = where_clause.get("path", [""])
+                    value = where_clause.get("valueText", "")
+                    return ~wvc.query.Filter.by_property(path[0]).equal(value)
+
+                elif operator == "ContainsAny":
+                    path = where_clause.get("path", [""])
+                    values = where_clause.get("valueTextArray", [])
+                    return wvc.query.Filter.by_property(path[0]).contains_any(values)
+
+            else:
+                # Simple property filter
+                path = where_clause.get("path", [""])
+                operator = where_clause.get("operator", "Equal")
+
+                if operator == "Equal":
+                    value = where_clause.get("valueText", "")
+                    return wvc.query.Filter.by_property(path[0]).equal(value)
+
+            # Fallback - return a basic filter
+            return wvc.query.Filter.by_property("document_id").exists()
+
+        except Exception as e:
+            self.logger.warning(f"Failed to build where filter: {e}")
+            return wvc.query.Filter.by_property("document_id").exists()
 
     def add_document(self, content: str, metadata: Dict[str, Any]) -> str:
         """
@@ -571,3 +746,19 @@ class WeaviateClient:
                 "created_at": properties.get("created_at")
             }
         )
+
+    def _parse_metadata(self, metadata_str: str) -> Dict[str, Any]:
+        """
+        Parse metadata from a JSON string.
+
+        Args:
+            metadata_str: JSON string representation of metadata
+
+        Returns:
+            Parsed metadata as a dictionary
+        """
+        try:
+            return json.loads(metadata_str)
+        except Exception as e:
+            self.logger.warning(f"Failed to parse metadata: {e}")
+            return {}
