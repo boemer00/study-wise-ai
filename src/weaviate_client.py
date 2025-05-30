@@ -415,6 +415,57 @@ class WeaviateClient:
             self.logger.error(f"Failed to add document: {e}")
             raise
 
+    def add_documents(self, documents: List[Dict[str, Any]]) -> int:
+        """
+        Add multiple documents to Weaviate with automatic embedding generation.
+
+        Args:
+            documents: List of document data with content and metadata
+
+        Returns:
+            Number of documents successfully added
+        """
+        try:
+            collection = self.client.collections.get("Document")
+            success_count = 0
+
+            for doc in documents:
+                try:
+                    # Prepare document properties for Weaviate schema
+                    properties = {
+                        "document_id": doc.get("document_id", ""),
+                        "chunk_id": doc.get("chunk_id", ""),
+                        "title": doc.get("title", ""),
+                        "content": doc.get("content", ""),
+                        "page_number": doc.get("chunk_index", 0) + 1,  # Convert chunk_index to page_number
+                        "source": doc.get("source", ""),
+                        "metadata": json.dumps({
+                            "document_id": doc.get("document_id"),
+                            "chunk_index": doc.get("chunk_index", 0),
+                            "start_position": doc.get("start_position", 0),
+                            "end_position": doc.get("end_position", 0),
+                            "tags": doc.get("tags", []),
+                            **doc.get("metadata", {})
+                        }),
+                        "created_at": datetime.now(timezone.utc)
+                    }
+
+                    # Add document chunk to Weaviate
+                    result = collection.data.insert(properties)
+                    success_count += 1
+                    self.logger.debug(f"Added document chunk {doc.get('chunk_id')} with ID: {result}")
+
+                except Exception as e:
+                    self.logger.error(f"Failed to add document chunk {doc.get('chunk_id', 'unknown')}: {e}")
+                    continue
+
+            self.logger.info(f"Successfully added {success_count}/{len(documents)} document chunks to Weaviate")
+            return success_count
+
+        except Exception as e:
+            self.logger.error(f"Failed to add documents to Weaviate: {e}")
+            return 0
+
     def semantic_search(self, query: str, limit: int = 10) -> List[SearchResult]:
         """
         Perform semantic search using vector similarity.

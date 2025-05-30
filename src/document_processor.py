@@ -260,6 +260,30 @@ class DocumentProcessor:
 
             result.errors = errors
 
+            # CRITICAL FIX: Update document status in Supabase database
+            if result.supabase_id:
+                try:
+                    # Map processing result status to database status
+                    db_status = 'completed' if result.status == 'success' else result.status
+
+                    # Update only existing columns - remove weaviate_id and weaviate_synced for now
+                    update_data = {
+                        'status': db_status,
+                        'updated_at': datetime.now().isoformat(),
+                        'chunks_count': result.chunks_created
+                    }
+
+                    # Only add error_message if there are errors
+                    if result.errors:
+                        update_data['error_message'] = '; '.join(result.errors)
+
+                    self.supabase_client.table('documents').update(update_data).eq('document_id', document_id).execute()
+
+                    logger.info(f"Updated document {document_id} status to {db_status}")
+                except Exception as e:
+                    logger.error(f"Failed to update document status: {e}")
+                    # Don't fail the whole operation for this
+
         except Exception as e:
             error_msg = f"Critical error during document processing: {str(e)}"
             logger.error(error_msg)
