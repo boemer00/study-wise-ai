@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class FlashcardLevel(str, Enum):
@@ -60,10 +60,21 @@ class FlashcardListResponse(BaseModel):
 class FlashcardReviewRequest(BaseModel):
     """Request model for recording a flashcard review."""
 
-    correct: bool = Field(..., description="Whether answer was correct")
+    correct: Optional[bool] = Field(None, description="Whether answer was correct (legacy)")
     response_time_seconds: Optional[float] = Field(None, ge=0, description="Response time")
-    difficulty_rating: Optional[int] = Field(None, ge=1, le=5, description="Difficulty rating 1-5")
+    difficulty_rating: Optional[int] = Field(None, ge=1, le=4, description="FSRS difficulty rating 1-4 (1=Again, 2=Hard, 3=Good, 4=Easy)")
     notes: Optional[str] = Field(None, max_length=500, description="Review notes")
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_rating_fields(cls, values):
+        """Ensure either correct or difficulty_rating is provided."""
+        if isinstance(values, dict):
+            correct = values.get('correct')
+            difficulty_rating = values.get('difficulty_rating')
+            if correct is None and difficulty_rating is None:
+                raise ValueError('Either correct or difficulty_rating must be provided')
+        return values
 
 
 class FlashcardReviewResponse(BaseModel):
