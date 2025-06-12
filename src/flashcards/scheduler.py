@@ -268,6 +268,9 @@ def get_due_cards(
     """
     Get flashcards due for review based on FSRS scheduling.
 
+    This function now properly prioritizes FSRS-scheduled cards and only falls back
+    to non-FSRS cards when there are truly no due cards in the FSRS system.
+
     Args:
         user_id: User identifier
         limit: Maximum cards to return
@@ -278,53 +281,152 @@ def get_due_cards(
     """
     supabase = get_supabase_client()
 
-    # Use the view we created for due cards
-    query = supabase.table('fsrs_due_cards').select('*').eq('user_id', user_id)
-
-    # Apply filters if provided
-    if filters:
-        if filters.tags:
-            # Filter by tags (this requires joining with flashcards table)
-            query = query.contains('tags', filters.tags)
-
-        if filters.difficulty_range:
-            min_diff, max_diff = filters.difficulty_range
-            query = query.gte('difficulty', min_diff).lte('difficulty', max_diff)
-
-        if filters.overdue_only:
-            query = query.lt('due_date', datetime.now().isoformat())
-
-        if filters.due_before:
-            query = query.lt('due_date', filters.due_before.isoformat())
-
-        if filters.exclude_new:
-            query = query.neq('state', 'new')
-
-    # Order by priority: overdue first, then by difficulty
-    query = query.order('due_date', desc=False).order('difficulty', desc=True)
-
-    # Apply limit
-    query = query.limit(limit)
-
     try:
-        result = query.execute()
+        # First, try to get FSRS cards that are due by manually joining tables
+        # Get FSRS states that are due
+        now = datetime.now().isoformat()
+        fsrs_states_query = supabase.table('fsrs_card_states').select('*').eq('user_id', user_id).lte('due_date', now)
 
-        # If we have FSRS due cards, return them
-        if result.data:
-            return result.data
+        # Apply FSRS-specific filters if provided
+        if filters:
+            if filters.difficulty_range:
+                min_diff, max_diff = filters.difficulty_range
+                fsrs_states_query = fsrs_states_query.gte('difficulty', min_diff).lte('difficulty', max_diff)
+            if filters.overdue_only:
+                fsrs_states_query = fsrs_states_query.lt('due_date', now)
+            if filters.due_before:
+                fsrs_states_query = fsrs_states_query.lt('due_date', filters.due_before.isoformat())
+            if filters.exclude_new:
+                fsrs_states_query = fsrs_states_query.neq('state', 'new')
 
-        # Fallback: If no FSRS cards exist, return some regular flashcards for demo
-        # This handles cases where FSRS hasn't been initialized yet
-        fallback_query = supabase.table('flashcards').select('*').limit(limit)
-        fallback_result = fallback_query.execute()
-        return fallback_result.data if fallback_result.data else []
+        # Order by priority: overdue first, then by difficulty
+        fsrs_states_query = fsrs_states_query.order('due_date', desc=False).order('difficulty', desc=True)
+        fsrs_states_result = fsrs_states_query.execute()
+
+        fsrs_states = fsrs_states_result.data if fsrs_states_result.data else []
+
+        if fsrs_states:
+            # Get flashcard details for the FSRS states
+            flashcard_ids = [state['flashcard_id'] for state in fsrs_states[:limit]]
+            flashcards_query = supabase.table('flashcards').select('*').in_('id', flashcard_ids)
+            flashcards_result = flashcards_query.execute()
+            flashcards_data = {fc['id']: fc for fc in (flashcards_result.data or [])}
+
+            # Combine FSRS state with flashcard data
+            due_cards = []
+            for state in fsrs_states[:limit]:
+                flashcard_data = flashcards_data.get(state['flashcard_id'])
+                if flashcard_data:
+                    combined_card = {
+                        'flashcard_id': state['flashcard_id'],
+                        'question': flashcard_data['question'],
+                        'answer': flashcard_data['answer'],
+                        'tags': flashcard_data.get('tags', []),
+                        'level': flashcard_data.get('level', 'beginner'),
+                        'user_id': user_id,
+                        'stability': state['stability'],
+                        'difficulty': state['difficulty'],
+                        'due_date': state['due_date'],
+                        'last_reviewed': state['last_reviewed'],
+                        'total_reviews': state['total_reviews'],
+                        'state': state['state'],
+                        'reps': state['reps'],
+                        'is_due': True,
+                        'days_overdue': max(0, (datetime.now() - datetime.fromisoformat(state['due_date'].replace('Z', '+00:00'))).days)
+                    }
+                    due_cards.append(combined_card)
+
+            # If we have enough FSRS cards, return them
+            if len(due_cards) >= limit:
+                return due_cards[:limit]
+
+            # If we need more cards, fill with new cards that haven't been migrated to FSRS yet
+            remaining_limit = limit - len(due_cards)
+
+        else:
+            # No FSRS cards found, start fresh
+            due_cards = []
+            remaining_limit = limit
+
+        # Get flashcard IDs that already have FSRS states to exclude them
+        existing_fsrs_query = supabase.table('fsrs_card_states').select('flashcard_id').eq('user_id', user_id)
+        existing_fsrs_result = existing_fsrs_query.execute()
+        existing_fsrs_ids = {row['flashcard_id'] for row in (existing_fsrs_result.data or [])}
+
+        # Get regular flashcards that don't have FSRS states yet
+        regular_query = supabase.table('flashcards').select('*').limit(remaining_limit * 2)  # Get extra to filter
+        regular_result = regular_query.execute()
+        regular_cards = regular_result.data if regular_result.data else []
+
+        # Filter out cards that already have FSRS states and apply content filters
+        new_cards = []
+        for card in regular_cards:
+            if card['id'] not in existing_fsrs_ids:
+                # Apply tag filters if specified
+                if filters and filters.tags:
+                    card_tags = card.get('tags', [])
+                    if not any(tag in card_tags for tag in filters.tags):
+                        continue
+
+                # Convert to the format expected by the frontend
+                new_card = {
+                    'flashcard_id': card['id'],
+                    'question': card['question'],
+                    'answer': card['answer'],
+                    'tags': card.get('tags', []),
+                    'level': card.get('level', 'beginner'),
+                    'user_id': user_id,
+                    'stability': 0.4,  # Default for new cards
+                    'difficulty': 5.0,  # Default difficulty
+                    'due_date': datetime.now().isoformat(),  # Due now for first review
+                    'last_reviewed': None,
+                    'total_reviews': 0,
+                    'state': 'new',
+                    'reps': 0,
+                    'is_due': True,
+                    'days_overdue': 0
+                }
+                new_cards.append(new_card)
+
+                if len(new_cards) >= remaining_limit:
+                    break
+
+        # Combine FSRS cards with new cards
+        all_due_cards = due_cards + new_cards
+
+        return all_due_cards[:limit]
 
     except Exception as e:
-        # If there's a UUID error or other issue, try the fallback
+        # Ultimate fallback: return some regular flashcards for demo
         try:
             fallback_query = supabase.table('flashcards').select('*').limit(limit)
             fallback_result = fallback_query.execute()
-            return fallback_result.data if fallback_result.data else []
+            fallback_cards = fallback_result.data if fallback_result.data else []
+
+            # Convert to expected format
+            converted_cards = []
+            for card in fallback_cards:
+                converted_card = {
+                    'flashcard_id': card['id'],
+                    'question': card['question'],
+                    'answer': card['answer'],
+                    'tags': card.get('tags', []),
+                    'level': card.get('level', 'beginner'),
+                    'user_id': user_id,
+                    'stability': 0.4,
+                    'difficulty': 5.0,
+                    'due_date': datetime.now().isoformat(),
+                    'last_reviewed': None,
+                    'total_reviews': 0,
+                    'state': 'new',
+                    'reps': 0,
+                    'is_due': True,
+                    'days_overdue': 0
+                }
+                converted_cards.append(converted_card)
+
+            return converted_cards
+
         except:
             return []
 
@@ -807,3 +909,71 @@ def restore_scheduling_data(user_id: str, backup_data: Dict[str, Any]) -> bool:
     except Exception as e:
         print(f"Error restoring backup: {e}")
         return False
+
+
+def migrate_demo_cards_to_fsrs(user_id: str, limit: int = 50) -> int:
+    """
+    Migrate regular flashcards to FSRS system for demo purposes.
+    This function creates FSRS states for cards that don't have them yet.
+
+    Args:
+        user_id: User identifier (can be string for demo)
+        limit: Maximum cards to migrate
+
+    Returns:
+        Number of cards migrated
+    """
+    supabase = get_supabase_client()
+    migrated_count = 0
+
+    try:
+        # Get existing FSRS card IDs to avoid duplicates
+        existing_fsrs_query = supabase.table('fsrs_card_states').select('flashcard_id').eq('user_id', user_id)
+        existing_fsrs_result = existing_fsrs_query.execute()
+        existing_fsrs_ids = {row['flashcard_id'] for row in (existing_fsrs_result.data or [])}
+
+        # Get regular flashcards that don't have FSRS states
+        regular_query = supabase.table('flashcards').select('id').limit(limit * 2)
+        regular_result = regular_query.execute()
+        regular_cards = regular_result.data if regular_result.data else []
+
+        # Create FSRS states for cards that don't have them
+        cards_to_migrate = []
+        for card in regular_cards:
+            if card['id'] not in existing_fsrs_ids:
+                cards_to_migrate.append(card['id'])
+                if len(cards_to_migrate) >= limit:
+                    break
+
+        # Create FSRS states in batch
+        now = datetime.now()
+        for card_id in cards_to_migrate:
+            try:
+                state_data = {
+                    'id': str(uuid.uuid4()),
+                    'flashcard_id': card_id,
+                    'user_id': user_id,
+                    'stability': 0.4,
+                    'difficulty': 5.0,
+                    'due_date': now.isoformat(),  # Due now for first review
+                    'last_reviewed': None,
+                    'total_reviews': 0,
+                    'lapses': 0,
+                    'state': 'new',
+                    'reps': 0,
+                    'elapsed_days': None,
+                    'scheduled_days': None
+                }
+
+                supabase.table('fsrs_card_states').insert(state_data).execute()
+                migrated_count += 1
+
+            except Exception as card_error:
+                print(f"Failed to migrate card {card_id}: {card_error}")
+                continue
+
+        return migrated_count
+
+    except Exception as e:
+        print(f"Migration failed: {e}")
+        return migrated_count

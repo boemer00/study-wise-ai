@@ -155,8 +155,11 @@ async def get_cards_due_today(
 
         flashcards = []
         for card_data in due_cards:
+            # Handle both regular flashcards (id) and FSRS cards (flashcard_id)
+            card_id = card_data.get('flashcard_id') or card_data.get('id', 'unknown')
+
             flashcard = FlashcardResponse(
-                id=card_data.get('id', 'unknown'),
+                id=card_id,
                 question=card_data.get('question', ''),
                 answer=card_data.get('answer', ''),
                 tags=card_data.get('tags', []),
