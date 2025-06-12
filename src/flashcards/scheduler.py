@@ -56,16 +56,16 @@ def get_card_state(flashcard_id: str, user_id: str) -> Optional[CardState]:
         user_id=state_data['user_id'],
         stability=state_data['stability'],
         difficulty=state_data['difficulty'],
-        due_date=datetime.fromisoformat(state_data['due_date'].replace('Z', '+00:00')),
-        last_reviewed=datetime.fromisoformat(state_data['last_reviewed'].replace('Z', '+00:00')) if state_data['last_reviewed'] else None,
+        due_date=datetime.fromisoformat(state_data['due_date'].replace('Z', '')).replace(tzinfo=None),
+        last_reviewed=datetime.fromisoformat(state_data['last_reviewed'].replace('Z', '')).replace(tzinfo=None) if state_data['last_reviewed'] else None,
         total_reviews=state_data['total_reviews'],
         lapses=state_data['lapses'],
         state=state_data['state'],
         reps=state_data['reps'],
         elapsed_days=state_data['elapsed_days'],
         scheduled_days=state_data['scheduled_days'],
-        created_at=datetime.fromisoformat(state_data['created_at'].replace('Z', '+00:00')),
-        updated_at=datetime.fromisoformat(state_data['updated_at'].replace('Z', '+00:00'))
+        created_at=datetime.fromisoformat(state_data['created_at'].replace('Z', '')).replace(tzinfo=None),
+        updated_at=datetime.fromisoformat(state_data['updated_at'].replace('Z', '')).replace(tzinfo=None)
     )
 
 
@@ -268,8 +268,9 @@ def get_due_cards(
     """
     Get flashcards due for review based on FSRS scheduling.
 
-    This function now properly prioritizes FSRS-scheduled cards and only falls back
-    to non-FSRS cards when there are truly no due cards in the FSRS system.
+    This function prioritizes FSRS-scheduled cards and includes new cards that
+    need to be migrated to FSRS. It no longer silently falls back to broken
+    systems when there are real errors.
 
     Args:
         user_id: User identifier
@@ -278,6 +279,9 @@ def get_due_cards(
 
     Returns:
         List of flashcard data with FSRS state information
+
+    Raises:
+        Exception: If there are database connectivity or system issues
     """
     supabase = get_supabase_client()
 
@@ -332,7 +336,7 @@ def get_due_cards(
                         'state': state['state'],
                         'reps': state['reps'],
                         'is_due': True,
-                        'days_overdue': max(0, (datetime.now() - datetime.fromisoformat(state['due_date'].replace('Z', '+00:00'))).days)
+                        'days_overdue': max(0, (datetime.now() - datetime.fromisoformat(state['due_date'].replace('Z', '')).replace(tzinfo=None)).days)
                     }
                     due_cards.append(combined_card)
 
@@ -397,38 +401,11 @@ def get_due_cards(
         return all_due_cards[:limit]
 
     except Exception as e:
-        # Ultimate fallback: return some regular flashcards for demo
-        try:
-            fallback_query = supabase.table('flashcards').select('*').limit(limit)
-            fallback_result = fallback_query.execute()
-            fallback_cards = fallback_result.data if fallback_result.data else []
-
-            # Convert to expected format
-            converted_cards = []
-            for card in fallback_cards:
-                converted_card = {
-                    'flashcard_id': card['id'],
-                    'question': card['question'],
-                    'answer': card['answer'],
-                    'tags': card.get('tags', []),
-                    'level': card.get('level', 'beginner'),
-                    'user_id': user_id,
-                    'stability': 0.4,
-                    'difficulty': 5.0,
-                    'due_date': datetime.now().isoformat(),
-                    'last_reviewed': None,
-                    'total_reviews': 0,
-                    'state': 'new',
-                    'reps': 0,
-                    'is_due': True,
-                    'days_overdue': 0
-                }
-                converted_cards.append(converted_card)
-
-            return converted_cards
-
-        except:
-            return []
+        # Log the error and re-raise it instead of using fallback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to get due cards for user {user_id}: {str(e)}")
+        raise e  # Re-raise the original exception
 
 
 def get_overdue_cards(user_id: str, days_overdue: int = 1) -> List[Dict[str, Any]]:

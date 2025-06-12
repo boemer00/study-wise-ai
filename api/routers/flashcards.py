@@ -139,6 +139,10 @@ async def get_cards_due_today(
     """
     Get flashcards due for review today using FSRS scheduling.
 
+    This endpoint prioritizes FSRS-scheduled cards and only falls back to new cards
+    when there are no due cards available. If FSRS system fails completely,
+    an error is returned rather than silently falling back to broken behavior.
+
     Args:
         user_id: Authenticated user ID
         limit: Maximum cards to return
@@ -147,11 +151,19 @@ async def get_cards_due_today(
         List of flashcards due today
 
     Raises:
-        HTTPException: If retrieval fails
+        HTTPException: If retrieval fails or system is unavailable
     """
     try:
         # Use FSRS system to get due cards
         due_cards = get_due_cards(user_id, limit=limit)
+
+        if not due_cards:
+            # No cards due - this is a valid state, return empty list
+            return FlashcardListResponse(
+                flashcards=[],
+                total=0,
+                has_more=False
+            )
 
         flashcards = []
         for card_data in due_cards:
@@ -176,7 +188,14 @@ async def get_cards_due_today(
             has_more=len(flashcards) >= limit  # More cards available if we hit the limit
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve cards due today: {str(e)}")
+        # Log the error for debugging but still return a meaningful error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"FSRS system failed for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Flashcard scheduling system is currently unavailable. Please try again later."
+        )
 
 
 @router.get("/{flashcard_id}", response_model=FlashcardResponse)
@@ -279,7 +298,13 @@ async def record_flashcard_review(
     verified_flashcard_id: str = Depends(verify_flashcard_access)
 ) -> FlashcardReviewResponse:
     """
-    Record a flashcard review session.
+    Record a flashcard review session using FSRS scheduling.
+
+    This endpoint uses a two-tier approach:
+    1. Try to process review with existing FSRS state
+    2. If card doesn't have FSRS state, initialize it first, then process review
+
+    No silent fallbacks to broken legacy systems - if FSRS fails, return an error.
 
     Args:
         flashcard_id: ID of the flashcard
@@ -293,6 +318,9 @@ async def record_flashcard_review(
     Raises:
         HTTPException: If flashcard not found or review recording fails
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
         # Map difficulty_rating (1-4) to FSRS CardRating
         if request.difficulty_rating:
@@ -303,16 +331,14 @@ async def record_flashcard_review(
             # Fallback for boolean correct field
             rating = CardRating.GOOD if request.correct else CardRating.AGAIN
 
-                # Use FSRS system to process the review
+        # Primary: Try to process review with existing FSRS state
         try:
             review_result = review_card(flashcard_id, user_id, rating)
-
-            # Extract next review date from the result
-            next_review_at = review_result.next_review_date
+            logger.info(f"Successfully processed FSRS review for card {flashcard_id}")
 
             return FlashcardReviewResponse(
                 flashcard_id=flashcard_id,
-                next_review_at=next_review_at,
+                next_review_at=review_result.next_due_date,
                 easiness_factor=2.5,  # Not used in FSRS, but required by API
                 correct_count=0,  # Would need additional tracking
                 incorrect_count=0,  # Would need additional tracking
@@ -320,44 +346,48 @@ async def record_flashcard_review(
             )
 
         except Exception as fsrs_error:
-            # If FSRS review fails (likely UUID issue or card not initialized), use fallback
-            try:
-                # Try to schedule a new card first (this will initialize FSRS state)
-                card_state = schedule_new_card(flashcard_id, user_id)
-                # Then process the review
-                review_result = review_card(flashcard_id, user_id, rating)
+            # Secondary: If FSRS state doesn't exist, try to initialize it
+            error_msg = str(fsrs_error).lower()
+            if "not found" in error_msg or "no fsrs state" in error_msg:
+                logger.info(f"No FSRS state found for card {flashcard_id}, initializing...")
 
-                return FlashcardReviewResponse(
-                    flashcard_id=flashcard_id,
-                    next_review_at=review_result.next_review_date,
-                    easiness_factor=2.5,
-                    correct_count=0,
-                    incorrect_count=0,
-                    streak=0
+                try:
+                    # Initialize FSRS state for this card
+                    card_state = schedule_new_card(flashcard_id, user_id)
+                    logger.info(f"Successfully initialized FSRS state for card {flashcard_id}")
+
+                    # Now process the review with the newly initialized state
+                    review_result = review_card(flashcard_id, user_id, rating)
+                    logger.info(f"Successfully processed review for newly initialized card {flashcard_id}")
+
+                    return FlashcardReviewResponse(
+                        flashcard_id=flashcard_id,
+                        next_review_at=review_result.next_due_date,
+                        easiness_factor=2.5,
+                        correct_count=0,
+                        incorrect_count=0,
+                        streak=0
+                    )
+
+                except Exception as init_error:
+                    logger.error(f"Failed to initialize FSRS state for card {flashcard_id}: {str(init_error)}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to initialize flashcard for FSRS scheduling: {str(init_error)}"
+                    )
+            else:
+                # This is a different kind of FSRS error, not related to missing state
+                logger.error(f"FSRS processing failed for card {flashcard_id}: {str(fsrs_error)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Flashcard review processing failed: {str(fsrs_error)}"
                 )
-            except Exception as schedule_error:
-                # Final fallback: use old system and simulate FSRS intervals
-                is_correct = request.difficulty_rating >= 3 if request.difficulty_rating else request.correct
 
-                # Calculate next review based on difficulty rating
-                if request.difficulty_rating:
-                    # Simulate FSRS intervals: Again=10min, Hard=1day, Good=4days, Easy=6days
-                    interval_map = {1: 10/1440, 2: 1, 3: 4, 4: 6}  # in days (10min converted to fraction)
-                    days_ahead = interval_map.get(request.difficulty_rating, 4)
-                    next_review = datetime.now() + timedelta(days=days_ahead)
-                else:
-                    stats = update_flashcard_stats(flashcard_id, user_id, is_correct)
-                    next_review = datetime.fromisoformat(stats.get('next_review_at', datetime.now().isoformat().replace('+00:00', '')))
-
-                return FlashcardReviewResponse(
-                    flashcard_id=flashcard_id,
-                    next_review_at=next_review,
-                    easiness_factor=2.5,
-                    correct_count=0,
-                    incorrect_count=0,
-                    streak=0
-                )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        logger.error(f"Unexpected error processing review for card {flashcard_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to record review: {str(e)}")
 
 

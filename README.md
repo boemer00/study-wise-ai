@@ -1,14 +1,15 @@
 # StudyWise AI 🧠✨
 
-> **Advanced AI-Powered Learning Platform with Feynman Technique Integration**
+> **Advanced AI-Powered Learning Platform with FSRS Spaced Repetition**
 
-StudyWise AI is a revolutionary multimodal personal knowledge management system that transforms study materials into intelligent, interactive learning experiences. Featuring cutting-edge study modes including the **FeynmanMode** for teaching-based learning, real-time analytics, and voice AI compatibility.
+StudyWise AI is a revolutionary multimodal personal knowledge management system that transforms study materials into intelligent, interactive learning experiences. Featuring cutting-edge study modes including the **FeynmanMode** for teaching-based learning, **FSRS-powered flashcard system** for optimal memory retention, real-time analytics, and voice AI compatibility.
 
 ## 🌟 Key Features
 
 ### 🧠 **Advanced Study Modes**
 - **FeynmanMode**: Learn by teaching with real-time quality analysis
 - **TraditionalMode**: Classic Q&A with adaptive difficulty
+- **FSRS Flashcards**: Scientific spaced repetition for maximum retention
 - **SocraticMode**: Guided questioning and critical thinking *(coming soon)*
 - **DebateMode**: Argumentative learning and perspective analysis *(coming soon)*
 
@@ -19,6 +20,14 @@ StudyWise AI is a revolutionary multimodal personal knowledge management system 
 - **Knowledge Gap Identification**: AI detects uncertainty and vague terminology
 - **Audience Progression**: Dynamic teaching for Child → Peer → Expert audiences
 - **Session Analytics**: Comprehensive learning insights and personalized recommendations
+
+### 🧮 **FSRS Spaced Repetition System**
+- **Modern Algorithm**: FSRS (Free Spaced Repetition Scheduler) with 17 optimized parameters
+- **Intelligent Scheduling**: Scientific intervals based on memory research
+- **4-Point Rating System**: Again (10min) → Hard (1 day) → Good (4 days) → Easy (6 days)
+- **Adaptive Difficulty**: Dynamic difficulty adjustment based on performance
+- **Production Ready**: UUID-based authentication with robust error handling
+- **API Integration**: RESTful endpoints for seamless frontend integration
 
 ### 🔍 **Intelligent Search & Processing**
 - **Hybrid Database Architecture**: Weaviate (vector) + Supabase (relational)
@@ -40,12 +49,14 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 🌐 Frontend (React + TypeScript)
 ├── Study Modes Hub (Mode Selection)
 ├── FeynmanMode Interface (Teaching Analytics)
+├── FSRS Flashcard System (Spaced Repetition)
 ├── Traditional Study Sessions
 └── Document Management
 
 ⚡ FastAPI Backend
 ├── Study Modes Framework
 ├── FeynmanMode Engine (895 lines)
+├── FSRS Scheduler (957 lines)
 ├── Session Management
 └── Analytics Engine
 
@@ -56,8 +67,9 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 
 📊 Relational Database (Supabase)
 ├── User Sessions
-├── Study Analytics
-└── Progress Tracking
+├── FSRS Card States
+├── Review History
+└── Study Analytics
 ```
 
 ## 🚀 Implementation Status
@@ -70,6 +82,17 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 - [x] **TraditionalMode**: Classic Q&A learning with spaced repetition
 - [x] **Session Management**: Robust session lifecycle handling
 - [x] **Analytics Engine**: Comprehensive learning insights
+
+#### **🧮 FSRS Spaced Repetition System** *(NEW)*
+- [x] **FSRS Algorithm**: Complete implementation with 17 parameters
+- [x] **Card Scheduling**: Intelligent review intervals based on performance
+- [x] **Review Processing**: 4-point rating system (Again/Hard/Good/Easy)
+- [x] **Database Integration**: FSRS states and review history tracking
+- [x] **API Endpoints**: Production-ready flashcard management
+- [x] **UUID Authentication**: Secure user session management
+- [x] **Error Handling**: Robust fallback logic and debugging
+- [x] **Migration Tools**: Scripts for card migration and testing
+- [x] **Timezone Support**: Proper datetime handling across systems
 
 #### **🎯 FeynmanMode Implementation**
 - [x] **Teaching Analysis**: Real-time quality scoring and feedback
@@ -94,7 +117,7 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 #### **🧪 Testing & Quality**
 - [x] **Comprehensive Test Suite**: 30+ tests covering all functionality
 - [x] **Integration Tests**: End-to-end workflow validation
-- [x] **Demo Scripts**: Live demonstration of FeynmanMode capabilities
+- [x] **Demo Scripts**: Live demonstration of FeynmanMode and FSRS capabilities
 - [x] **Production Ready**: Error handling and edge case management
 
 ### 🔮 **Future Enhancements**
@@ -103,6 +126,7 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 - [ ] **Voice Integration**: 11Labs TTS/STT for hands-free learning
 - [ ] **Multimodal Support**: Image and video content processing
 - [ ] **Advanced Analytics**: ML-powered learning optimization
+- [ ] **FSRS Parameter Optimization**: Personalized algorithm tuning
 
 ## 🛠️ Technology Stack
 
@@ -114,6 +138,7 @@ StudyWise AI implements a **sophisticated multi-tier architecture** optimized fo
 | **Vector DB** | Weaviate Cloud | Semantic search & embeddings |
 | **Database** | Supabase PostgreSQL | Structured data & analytics |
 | **AI/ML** | OpenAI GPT-4 + Embeddings | Natural language processing |
+| **Spaced Repetition** | FSRS Algorithm | Scientific memory optimization |
 | **Testing** | pytest + React Testing Library | Comprehensive test coverage |
 
 ## 📁 Project Structure
@@ -134,6 +159,11 @@ study-wise-ai/
 │   │   ├── 📁 session/              # Session management
 │   │   │   └── 🔄 session_manager.py # Session lifecycle handling
 │   │   └── 🎮 study_mode_manager.py # Mode coordination
+│   ├── 🧮 flashcards/               # FSRS spaced repetition system
+│   │   ├── ⚡ scheduler.py          # FSRS scheduler (957 lines)
+│   │   ├── 🧠 fsrs.py               # Core FSRS algorithm
+│   │   ├── 📊 models.py             # FSRS data models
+│   │   └── 🔧 flashcards_db.py      # Database operations
 │   ├── 💬 conversation/             # Chat and dialogue systems
 │   ├── 📄 file_handlers/            # Document processing
 │   └── 🔍 (vector search components) # Weaviate integration
@@ -144,14 +174,19 @@ study-wise-ai/
 │   │   ├── 🎯 test_feynman_mode.py         # 10 core functionality tests
 │   │   ├── 📊 test_session_manager.py      # Session management tests
 │   │   └── 🔧 (additional test modules)    # Foundation and integration tests
+│   ├── 🧮 flashcards/               # FSRS test suite
+│   │   └── ✅ test_fsrs_integration.py     # FSRS algorithm tests
 │   └── 📁 (other test modules)/    # Additional test coverage
 │
 ├── 📂 api/                          # FastAPI backend
 │   ├── 🔧 core/                     # Core API configuration
 │   ├── 📊 models/                   # API data models
 │   └── 🛣️ routers/                  # API route handlers
+│       └── 🧮 flashcards.py        # FSRS API endpoints
 │
 ├── 🎮 test_feynman_demo.py          # Live FeynmanMode demonstration
+├── 🧮 demo_spaced_repetition.py     # Live FSRS demonstration
+├── 🔄 test_migration.py             # FSRS card migration script
 ├── 🚀 start_api.py                  # API server launcher
 ├── 📋 requirements.txt              # Python dependencies
 └── 📖 README.md                     # This documentation
@@ -163,13 +198,48 @@ src/
 ├── 📱 components/
 │   ├── 🧠 StudyModesHub.tsx         # Mode selection interface
 │   ├── 🎯 FeynmanSession.tsx        # Teaching interface with analytics
+│   ├── 🧮 FlashcardReview.tsx       # FSRS flashcard interface
 │   ├── 💬 ChatInterface.tsx         # AI conversation
 │   ├── 📄 DocumentManager.tsx       # File upload and management
 │   └── 📊 Dashboard.tsx             # Learning progress overview
 ├── 🔗 services/
-│   └── 📡 api.ts                    # Study modes API integration
+│   └── 📡 api.ts                    # Study modes and FSRS API integration
 └── 🎨 (UI components and routing)   # Modern React architecture
 ```
+
+## 🧮 FSRS Spaced Repetition System
+
+### **How It Works**
+
+The FSRS (Free Spaced Repetition Scheduler) system uses cutting-edge research in memory science to optimize learning retention:
+
+1. **Initial Review**: New cards are shown immediately
+2. **Performance Rating**: User rates difficulty (Again/Hard/Good/Easy)
+3. **Intelligent Scheduling**: Algorithm calculates optimal next review interval
+4. **Adaptive Difficulty**: System learns from user performance patterns
+
+### **Rating System**
+- **🔴 Again (1)**: Review in 10 minutes
+- **🟡 Hard (2)**: Review in 1 day
+- **🟢 Good (3)**: Review in 4 days
+- **🔵 Easy (4)**: Review in 6+ days
+
+### **Key Benefits**
+- **Scientific Accuracy**: Based on latest memory research
+- **Personalized Learning**: Adapts to individual performance
+- **Optimal Efficiency**: Minimal reviews for maximum retention
+- **Production Ready**: Robust error handling and UUID authentication
+
+### **API Endpoints**
+```
+GET /api/v1/flashcards/due-today        # Get cards due for review
+POST /api/v1/flashcards/{id}/review     # Record review with rating
+GET /api/v1/flashcards/stats/overview   # Get learning statistics
+```
+
+### **Demo Scripts**
+- `demo_spaced_repetition.py`: Live FSRS demonstration
+- `test_migration.py`: Card migration to FSRS system
 
 ## ⚙️ Setup Instructions
 
@@ -249,6 +319,35 @@ print(f"Analogies Detected: {response.metadata['analogies_detected']}")
 print(f"Progress: {response.progress_percentage:.1f}%")
 ```
 
+### 🧮 **FSRS Spaced Repetition**
+
+```python
+# Demonstration of FSRS scheduling system
+from src.flashcards.scheduler import get_due_cards, review_card
+from src.flashcards.models import CardRating
+
+# Get cards due for review today
+user_id = "550e8400-e29b-41d4-a716-446655440000"  # UUID format
+due_cards = get_due_cards(user_id, limit=10)
+print(f"Cards due today: {len(due_cards)}")
+
+# Review cards with FSRS ratings
+for card in due_cards[:3]:
+    card_id = card['flashcard_id']
+
+    # User rates difficulty: 1=Again, 2=Hard, 3=Good, 4=Easy
+    rating = CardRating.GOOD  # 3 - Good performance
+
+    # Process review and get next scheduled date
+    result = review_card(card_id, user_id, rating)
+    print(f"Card {card_id}: Next review {result.next_due_date}")
+    print(f"Interval: {result.interval_days} days")
+
+# Cards are automatically excluded from future "due today" lists
+remaining_cards = get_due_cards(user_id, limit=10)
+print(f"Cards still due: {len(remaining_cards)}")
+```
+
 ### 🎮 **Frontend Interface**
 
 Access the modern learning interface:
@@ -295,8 +394,12 @@ pytest
 # FeynmanMode specific
 pytest tests/study_modes/test_feynman_comprehensive.py -v
 
-# Live demonstration
+# FSRS spaced repetition
+pytest tests/flashcards/ -v
+
+# Live demonstrations
 python test_feynman_demo.py
+python demo_spaced_repetition.py
 ```
 
 ### **Test Coverage**
