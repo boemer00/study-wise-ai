@@ -55,6 +55,9 @@ class DocumentUploadResponse(BaseModel):
     processing_time: Optional[float] = None
     errors: List[str] = Field(default_factory=list)
 
+    # Flashcard generation information
+    flashcard_info: Optional[Dict[str, Any]] = None
+
     # Enhanced response fields for PDF/DOCX
     extracted_metadata: Optional[Dict[str, Any]] = None
     page_count: Optional[int] = None

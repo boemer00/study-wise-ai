@@ -10,6 +10,63 @@ from datetime import datetime
 from src.supabase_client import get_supabase_client
 
 
+def save_generated_flashcards(
+    flashcards: List[Dict[str, Any]],
+    user_id: str,
+    document_id: Optional[str] = None
+) -> List[str]:
+    """
+    Save generated flashcards directly to the database.
+
+    Args:
+        flashcards: List of flashcard dictionaries
+        user_id: UUID of the user who generated the flashcards
+        document_id: Optional document ID the flashcards were generated from
+
+    Returns:
+        List[str]: List of IDs of the saved flashcards
+    """
+    if not flashcards:
+        return []
+
+    # Prepare flashcards for database storage
+    processed_cards = []
+    for card in flashcards:
+        # Ensure required fields exist
+        if not card.get('question') or not card.get('answer'):
+            continue  # Skip invalid cards
+
+        processed_card = {
+            'id': str(uuid.uuid4()),
+            'question': card['question'],
+            'answer': card['answer'],
+            'tags': card.get('tags', []),
+            'level': card.get('level', 'intermediate'),
+            'user_id': user_id,
+            'created_at': datetime.utcnow().isoformat()
+        }
+
+        # Add document reference if provided
+        if document_id:
+            if not processed_card['tags']:
+                processed_card['tags'] = []
+            processed_card['tags'].append(f"document:{document_id}")
+
+        processed_cards.append(processed_card)
+
+    if not processed_cards:
+        return []
+
+    # Save to Supabase
+    supabase = get_supabase_client()
+    try:
+        result = supabase.table('flashcards').insert(processed_cards).execute()
+        return [card['id'] for card in processed_cards]
+    except Exception as e:
+        print(f"Error saving flashcards to database: {e}")
+        return []
+
+
 def upsert_flashcards_from_json(filepath: str) -> List[str]:
     """
     Read flashcards from a JSON file and upsert them into Supabase.
