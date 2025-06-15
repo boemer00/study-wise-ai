@@ -6,6 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import List, Optional
+import logging
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, Form
 from datetime import datetime
 
@@ -19,6 +20,10 @@ from api.models.documents import (
 )
 from src.document_processor import DocumentProcessor
 from src.flashcard_generator import FlashcardGenerator
+from src.flashcards_db import save_generated_flashcards
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -239,9 +244,19 @@ async def upload_document(
 
                     logger.info(f"Generated {flashcards_created} flashcards for document {storage_result.document_id}")
 
-                    # TODO: Store flashcards in database
-                    # For now, we've generated them but they're not persisted
-                    # In a production system, you'd store them in Supabase flashcards table
+                    # Store flashcards in database
+                    try:
+                        saved_flashcard_ids = save_generated_flashcards(
+                            flashcards=limited_flashcards,
+                            user_id=user_id,
+                            document_id=storage_result.document_id
+                        )
+                        logger.info(f"Successfully saved {len(saved_flashcard_ids)} flashcards to database")
+                        flashcards_created = len(saved_flashcard_ids)
+                    except Exception as db_error:
+                        logger.error(f"Failed to save flashcards to database: {str(db_error)}")
+                        flashcard_generation_error = f"Generated flashcards but failed to save: {str(db_error)}"
+                        # Keep flashcards_created as the number generated even if saving failed
 
                 else:
                     logger.warning(f"No suitable content chunks found for flashcard generation in {file.filename}")

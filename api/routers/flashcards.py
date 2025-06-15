@@ -176,7 +176,7 @@ async def get_cards_due_today(
                 answer=card_data.get('answer', ''),
                 tags=card_data.get('tags', []),
                 level=FlashcardLevel(card_data.get('level', 'beginner')),
-                created_at=datetime.fromisoformat(card_data.get('created_at', datetime.now().isoformat().replace('+00:00', ''))),
+                created_at=datetime.fromisoformat(card_data.get('created_at') or datetime.now().isoformat().replace('+00:00', '')),
                 user_id=user_id,
                 metadata=card_data.get('metadata', {})
             )

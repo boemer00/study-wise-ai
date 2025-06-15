@@ -7,7 +7,7 @@ Follows the existing flashcards_db.py pattern for consistency.
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from src.supabase_client import get_supabase_client
 from .models import (
@@ -56,8 +56,8 @@ def get_card_state(flashcard_id: str, user_id: str) -> Optional[CardState]:
         user_id=state_data['user_id'],
         stability=state_data['stability'],
         difficulty=state_data['difficulty'],
-        due_date=datetime.fromisoformat(state_data['due_date'].replace('Z', '')).replace(tzinfo=None),
-        last_reviewed=datetime.fromisoformat(state_data['last_reviewed'].replace('Z', '')).replace(tzinfo=None) if state_data['last_reviewed'] else None,
+        due_date=datetime.fromisoformat(state_data['due_date'].replace('Z', '+00:00')),
+        last_reviewed=datetime.fromisoformat(state_data['last_reviewed'].replace('Z', '+00:00')) if state_data['last_reviewed'] else None,
         total_reviews=state_data['total_reviews'],
         lapses=state_data['lapses'],
         state=state_data['state'],
@@ -89,7 +89,7 @@ def schedule_new_card(flashcard_id: str, user_id: str) -> CardState:
         raise ValueError(f"Card {flashcard_id} already has FSRS state for user {user_id}")
 
     supabase = get_supabase_client()
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     # Create initial state
     initial_state = CardState(
@@ -158,7 +158,7 @@ def review_card(
         ValueError: If card not found or invalid parameters
     """
     if review_time is None:
-        review_time = datetime.now()
+        review_time = datetime.now(timezone.utc)
 
     # Get current card state or create new one
     current_state = get_card_state(flashcard_id, user_id)
@@ -167,7 +167,12 @@ def review_card(
 
     # Calculate elapsed days since last review
     if current_state.last_reviewed:
-        elapsed_days = (review_time - current_state.last_reviewed).days
+        # Ensure both datetimes are timezone-aware for safe subtraction
+        last_reviewed = current_state.last_reviewed
+        if last_reviewed.tzinfo is None:
+            # If somehow still naive, assume UTC
+            last_reviewed = last_reviewed.replace(tzinfo=timezone.utc)
+        elapsed_days = (review_time - last_reviewed).days
     else:
         elapsed_days = 0  # First review
 
@@ -287,8 +292,8 @@ def get_due_cards(
 
     try:
         # First, try to get FSRS cards that are due by manually joining tables
-        # Get FSRS states that are due
-        now = datetime.now().isoformat()
+        # Get FSRS states that are due - use UTC timezone for consistency with database
+        now = datetime.now(timezone.utc).isoformat()
         fsrs_states_query = supabase.table('fsrs_card_states').select('*').eq('user_id', user_id).lte('due_date', now)
 
         # Apply FSRS-specific filters if provided
@@ -299,7 +304,9 @@ def get_due_cards(
             if filters.overdue_only:
                 fsrs_states_query = fsrs_states_query.lt('due_date', now)
             if filters.due_before:
-                fsrs_states_query = fsrs_states_query.lt('due_date', filters.due_before.isoformat())
+                # Ensure due_before is timezone-aware, convert to UTC if naive
+                due_before_utc = filters.due_before.replace(tzinfo=timezone.utc) if filters.due_before.tzinfo is None else filters.due_before.astimezone(timezone.utc)
+                fsrs_states_query = fsrs_states_query.lt('due_date', due_before_utc.isoformat())
             if filters.exclude_new:
                 fsrs_states_query = fsrs_states_query.neq('state', 'new')
 
@@ -336,7 +343,7 @@ def get_due_cards(
                         'state': state['state'],
                         'reps': state['reps'],
                         'is_due': True,
-                        'days_overdue': max(0, (datetime.now() - datetime.fromisoformat(state['due_date'].replace('Z', '')).replace(tzinfo=None)).days)
+                        'days_overdue': max(0, (datetime.now(timezone.utc) - datetime.fromisoformat(state['due_date'].replace('Z', '+00:00'))).days)
                     }
                     due_cards.append(combined_card)
 
@@ -382,7 +389,7 @@ def get_due_cards(
                     'user_id': user_id,
                     'stability': 0.4,  # Default for new cards
                     'difficulty': 5.0,  # Default difficulty
-                    'due_date': datetime.now().isoformat(),  # Due now for first review
+                    'due_date': datetime.now(timezone.utc).isoformat(),  # Due now for first review
                     'last_reviewed': None,
                     'total_reviews': 0,
                     'state': 'new',
@@ -537,6 +544,34 @@ def calculate_user_retention_rate(
     return successful_reviews / total_reviews if total_reviews > 0 else 0.0
 
 
+def get_daily_review_count(user_id: str) -> int:
+    """
+    Get the number of reviews completed today for a user.
+    
+    Args:
+        user_id: User identifier
+        
+    Returns:
+        Number of reviews completed today
+    """
+    supabase = get_supabase_client()
+    
+    try:
+        # Get today's date in UTC
+        today = datetime.now(timezone.utc).date()
+        today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
+        today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
+        # Query reviews from today
+        result = supabase.table('fsrs_review_history').select('id').eq('user_id', user_id).gte('review_time', today_start.isoformat()).lte('review_time', today_end.isoformat()).execute()
+        
+        return len(result.data or [])
+        
+    except Exception as e:
+        print(f"Error getting daily review count: {e}")
+        return 0
+
+
 def get_scheduling_metrics(user_id: str) -> SchedulingMetrics:
     """
     Generate comprehensive scheduling metrics for a user.
@@ -614,7 +649,7 @@ def get_scheduling_metrics(user_id: str) -> SchedulingMetrics:
         average_retention=retention_rate,
         average_difficulty=metrics_data['avg_difficulty'] or 5.0,
         average_stability=metrics_data['avg_stability'] or 0.4,
-        daily_review_count=0,  # Would need additional calculation
+        daily_review_count=get_daily_review_count(user_id),
         study_streak=0,  # Would need additional calculation
         calculated_at=datetime.now(),
         period_start=datetime.now() - timedelta(days=30),
@@ -664,7 +699,7 @@ def reset_card_progress(flashcard_id: str, user_id: str) -> bool:
     reset_data = {
         'stability': 0.4,
         'difficulty': 5.0,
-        'due_date': datetime.now().isoformat(),
+        'due_date': datetime.now(timezone.utc).isoformat(),
         'last_reviewed': None,
         'total_reviews': 0,
         'lapses': 0,
@@ -923,7 +958,7 @@ def migrate_demo_cards_to_fsrs(user_id: str, limit: int = 50) -> int:
                     break
 
         # Create FSRS states in batch
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         for card_id in cards_to_migrate:
             try:
                 state_data = {

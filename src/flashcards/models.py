@@ -37,8 +37,8 @@ class FSRSParameters(BaseModel):
             1.616, 0.1544, 0.9849, 2.18, 0.11, 5.0, 2.4, 1.0, 2.0
         ],
         description="FSRS weight parameters",
-        min_items=17,
-        max_items=17
+        min_length=17,
+        max_length=17
     )
 
     # Scheduling constraints
