@@ -1,25 +1,61 @@
+# StudyWise AI - Consolidated Requirements
+# Core dependencies for the base application
+
+# AI/ML
 openai>=1.5.0
-python-dotenv>=1.0.0
 langchain>=0.0.267
-PyMuPDF>=1.22.5  # For PDF processing (fitz)
-python-docx>=0.8.11  # For DOCX processing
-python-pptx>=0.6.21  # For PPT/PPTX processing
-requests>=2.30.0  # For URL downloads
-pytest>=7.3.1  # For testing
-pytest-mock>=3.10.0  # For mocking in tests
-requests-mock>=1.10.0  # For mocking HTTP requests in tests
-pytest-asyncio>=0.21.0  # For async testing
-pytest-xdist>=3.2.0  # For parallel test execution
-# Weaviate dependencies
-weaviate-client>=3.25.0  # Weaviate Python client
-fastapi>=0.104.0  # For API endpoints
-uvicorn>=0.24.0  # ASGI server for FastAPI
-python-multipart>=0.0.6  # For file uploads in FastAPI
-# Supabase dependencies
-supabase>=2.0.0  # Supabase Python client
-postgrest>=0.13.0  # PostgreSQL REST API client
-# Integration testing dependencies
-reportlab>=4.0.0  # For PDF generation in tests
-faker>=20.0.0  # For generating realistic test data
-psutil>=5.9.0  # For system monitoring in performance tests
-memory-profiler>=0.61.0  # For memory usage testing
+
+# Environment management
+python-dotenv>=1.0.0
+
+# HTTP client
+requests>=2.30.0
+httpx>=0.25.2
+
+# Database
+supabase>=2.0.0
+postgrest>=0.13.0
+
+# Vector Database
+weaviate-client>=3.25.0
+
+# Testing (Core)
+pytest>=7.3.1
+pytest-mock>=3.10.0
+pytest-asyncio>=0.21.0
+pytest-xdist>=3.2.0
+requests-mock>=1.10.0
+
+# System utilities
+psutil>=5.9.0
+memory-profiler>=0.61.0
+
+# ===== OPTIONAL EXTRAS =====
+
+# API Backend (install with: pip install -r requirements.txt && pip install -e .[api])
+# fastapi>=0.104.0
+# uvicorn[standard]>=0.24.0
+# pydantic>=2.5.0
+# pydantic-settings>=2.1.0
+# python-jose[cryptography]>=3.3.0
+# passlib[bcrypt]>=1.7.4
+# python-multipart>=0.0.6
+# aiofiles>=23.2.1
+# slowapi>=0.1.9
+# structlog>=23.2.0
+
+# Document Processing (install with: pip install -r requirements.txt && pip install -e .[documents])
+# PyMuPDF>=1.22.5
+# python-docx>=0.8.11
+# python-pptx>=0.6.21
+# PyPDF2>=3.0.1
+# pdfplumber>=0.10.0
+# pymupdf>=1.23.26
+# docx2txt>=0.8
+# python-magic>=0.4.27
+# filetype>=1.2.0
+# charset-normalizer>=3.3.2
+
+# Development Testing
+# reportlab>=4.0.0
+# faker>=20.0.0
