@@ -206,6 +206,7 @@ async def list_flashcards():
 async def flashcards_due_today():
     """Get flashcards due today."""
     try:
+        # First try to get cards that are actually due
         from src.flashcards.scheduler import get_due_cards
         due_cards = get_due_cards(DEMO_USER_ID, limit=50)
         
@@ -221,6 +222,10 @@ async def flashcards_due_today():
                 "created_at": card_data.get('created_at', datetime.now().isoformat()),
                 "user_id": DEMO_USER_ID
             })
+        
+        # If no cards are due, return empty with a friendly message
+        if not flashcards:
+            logger.info("No cards due today")
         
         return {
             "flashcards": flashcards,
