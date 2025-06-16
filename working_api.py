@@ -15,6 +15,7 @@ import uvicorn
 import uuid
 import tempfile
 import logging
+from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -75,6 +76,9 @@ def get_flashcard_generator():
 
 # Demo user for development
 DEMO_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
+
+# Simple in-memory storage for daily review tracking
+daily_reviews = defaultdict(list)  # {date: [{'rating': int, 'timestamp': str}]}
 
 @app.get("/")
 async def root():
@@ -443,6 +447,14 @@ async def record_flashcard_review(flashcard_id: str, request: dict):
         
         logger.info(f"Mapped rating: {rating_name}")
         
+        # Track the review for daily stats
+        today = datetime.now().strftime('%Y-%m-%d')
+        daily_reviews[today].append({
+            'rating': difficulty_rating or (1 if not correct else 3),
+            'timestamp': datetime.now().isoformat(),
+            'flashcard_id': flashcard_id
+        })
+        
         # Try to use FSRS system
         try:
             from src.flashcards.scheduler import review_card, schedule_new_card
@@ -506,6 +518,67 @@ async def record_flashcard_review(flashcard_id: str, request: dict):
     except Exception as e:
         logger.error(f"Review recording failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to record review: {str(e)}")
+
+@app.get("/api/v1/flashcards/stats/overview")
+async def flashcard_stats_overview():
+    """Get flashcard statistics overview for dashboard."""
+    try:
+        # Get real flashcard counts
+        from src.flashcards_db import get_flashcards
+        all_flashcards = get_flashcards(limit=1000, offset=0)  # Get all cards to count
+        total_flashcards = len(all_flashcards)
+        
+        # Get cards due today count
+        try:
+            from src.flashcards.scheduler import get_due_cards
+            due_cards = get_due_cards(DEMO_USER_ID, limit=1000)
+            cards_due_today = len(due_cards)
+        except Exception as e:
+            logger.error(f"Failed to get due cards count: {e}")
+            cards_due_today = 0
+        
+        # Get document count
+        try:
+            processor = get_document_processor()
+            if processor:
+                stored_documents = await processor.get_stored_documents(DEMO_USER_ID, 0, 1000)
+                total_documents = len(stored_documents)
+            else:
+                total_documents = 0
+        except Exception as e:
+            logger.error(f"Failed to get document count: {e}")
+            total_documents = 0
+        
+        # Calculate today's review stats
+        today = datetime.now().strftime('%Y-%m-%d')
+        today_reviews = daily_reviews.get(today, [])
+        total_reviews_today = len(today_reviews)
+        
+        # Calculate today's accuracy: Good(3)/Easy(4) = correct, Again(1)/Hard(2) = incorrect
+        if today_reviews:
+            correct_reviews = sum(1 for review in today_reviews if review['rating'] in [3, 4])
+            accuracy_today = correct_reviews / len(today_reviews)
+        else:
+            accuracy_today = 0.0
+        
+        return {
+            "total_flashcards": total_flashcards,
+            "cards_due_today": cards_due_today,
+            "total_reviews_today": total_reviews_today,
+            "accuracy_today": accuracy_today,
+            "total_documents": total_documents
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get flashcard stats: {e}")
+        # Return zeros as fallback
+        return {
+            "total_flashcards": 0,
+            "cards_due_today": 0,
+            "total_reviews_today": 0,
+            "accuracy_today": 0.0,
+            "total_documents": 0
+        }
 
 @app.get("/api/v1/users/{user_id}/stats")
 async def user_stats(user_id: str):
