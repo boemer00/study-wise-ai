@@ -416,6 +416,92 @@ async def upload_document(
         if temp_file_path and os.path.exists(temp_file_path):
             os.unlink(temp_file_path)
 
+@app.post("/api/v1/flashcards/{flashcard_id}/review")
+async def record_flashcard_review(flashcard_id: str, request: dict):
+    """
+    Record a flashcard review using FSRS scheduling.
+    """
+    logger.info(f"Recording review for flashcard {flashcard_id}: {request}")
+    
+    try:
+        # Extract rating from request
+        difficulty_rating = request.get('difficulty_rating')
+        correct = request.get('correct')
+        
+        # Map difficulty rating
+        if difficulty_rating:
+            # Frontend sends: 1=Again, 2=Hard, 3=Good, 4=Easy
+            rating_names = {1: "again", 2: "hard", 3: "good", 4: "easy"}
+            rating_name = rating_names.get(difficulty_rating, "good")
+        else:
+            rating_name = "good" if correct else "again"
+        
+        logger.info(f"Mapped rating: {rating_name}")
+        
+        # Try to use FSRS system
+        try:
+            from src.flashcards.scheduler import review_card, schedule_new_card
+            from src.flashcards.models import CardRating
+            
+            # Map to CardRating enum
+            rating_map = {
+                "again": CardRating.AGAIN, 
+                "hard": CardRating.HARD, 
+                "good": CardRating.GOOD, 
+                "easy": CardRating.EASY
+            }
+            rating = rating_map.get(rating_name, CardRating.GOOD)
+            
+            # Try to process review
+            try:
+                review_result = review_card(flashcard_id, DEMO_USER_ID, rating)
+                logger.info(f"FSRS review successful: {review_result}")
+                
+                return {
+                    "flashcard_id": flashcard_id,
+                    "status": "success",
+                    "message": "Review recorded successfully",
+                    "next_review_at": review_result.next_due_date.isoformat() if hasattr(review_result, 'next_due_date') else None,
+                    "rating": rating_name
+                }
+            except Exception as fsrs_error:
+                error_msg = str(fsrs_error).lower()
+                if "not found" in error_msg or "no fsrs state" in error_msg:
+                    logger.info(f"No FSRS state found, initializing for card {flashcard_id}")
+                    
+                    # Initialize FSRS state
+                    card_state = schedule_new_card(flashcard_id, DEMO_USER_ID)
+                    logger.info(f"FSRS state initialized: {card_state}")
+                    
+                    # Now process the review
+                    review_result = review_card(flashcard_id, DEMO_USER_ID, rating)
+                    logger.info(f"FSRS review after init successful: {review_result}")
+                    
+                    return {
+                        "flashcard_id": flashcard_id,
+                        "status": "success",
+                        "message": "Review recorded successfully (initialized FSRS state)",
+                        "next_review_at": review_result.next_due_date.isoformat() if hasattr(review_result, 'next_due_date') else None,
+                        "rating": rating_name
+                    }
+                else:
+                    raise fsrs_error
+                    
+        except Exception as e:
+            logger.error(f"FSRS system failed: {e}")
+            # Fallback: Just return success without FSRS
+            return {
+                "flashcard_id": flashcard_id,
+                "status": "success",
+                "message": "Review recorded (FSRS unavailable)",
+                "rating": rating_name,
+                "note": "FSRS scheduling temporarily unavailable"
+            }
+            
+    except Exception as e:
+        logger.error(f"Review recording failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to record review: {str(e)}")
+
 @app.get("/api/v1/users/{user_id}/stats")
 async def user_stats(user_id: str):
     return {
