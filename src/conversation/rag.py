@@ -86,10 +86,12 @@ class StudyAssistant:
             # Validate configuration
             self._validate_configuration()
 
-            # Initialize Weaviate client
-            weaviate_client = WeaviateClient(
+            # Initialize Weaviate client using factory function
+            from src.weaviate_client import create_weaviate_client
+            weaviate_client = create_weaviate_client(
                 url=self.config['weaviate_url'],
-                api_key=self.config.get('weaviate_api_key')
+                api_key=self.config.get('weaviate_api_key'),
+                openai_api_key=self.config['openai_api_key']
             )
 
             # Test Weaviate connection

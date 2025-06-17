@@ -394,7 +394,8 @@ Core principles:
 - Adapt your explanation style to the student's needs
 - Encourage deeper learning and critical thinking
 - Cite sources when available
-- Be concise but thorough"""
+- Be concise but thorough
+- IMPORTANT: Distinguish between documents you have access to versus papers/sources mentioned within those documents. When listing available documents, only mention the actual documents in your database, not references cited within them."""
 
         # Add question type specific guidance
         type_guidance = {
