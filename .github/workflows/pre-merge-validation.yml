@@ -84,26 +84,28 @@ jobs:
               `- ${r.passed ? '✅' : '❌'} **${r.name}**: ${r.message}`
             ).join('\\n');
             
-            reportContent = `## 🔍 Pre-Merge Validation Results ${status}
-
-**Summary:**
-- **Tests Passed:** ${passedTests}/${totalTests} (${successRate}%)
-- **Duration:** ${report.duration_seconds.toFixed(1)}s
-- **Environment:** ${report.environment}
-
-**Test Results:**
-${testResults}
-
-${statusMessage}
-
-<details>
-<summary>📄 View detailed report</summary>
-
-\\\`\\\`\\\`json
-${JSON.stringify(report, null, 2)}
-\\\`\\\`\\\`
-
-</details>`;
+            reportContent = [
+              `## 🔍 Pre-Merge Validation Results ${status}`,
+              '',
+              '**Summary:**',
+              `- **Tests Passed:** ${passedTests}/${totalTests} (${successRate}%)`,
+              `- **Duration:** ${report.duration_seconds.toFixed(1)}s`,
+              `- **Environment:** ${report.environment}`,
+              '',
+              '**Test Results:**',
+              testResults,
+              '',
+              statusMessage,
+              '',
+              '<details>',
+              '<summary>📄 View detailed report</summary>',
+              '',
+              '```json',
+              JSON.stringify(report, null, 2),
+              '```',
+              '',
+              '</details>'
+            ].join('\\n');
           } catch (error) {
             reportContent = `❌ **Validation failed to complete**\n\nError: ${error.message}`;
           }
