@@ -9,23 +9,24 @@ on:
 env:
   ENVIRONMENT: development
   SECRET_KEY: test-secret-key-for-ci-validation
+  GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         python-version: [3.12]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
@@ -33,17 +34,17 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    
+
     - name: Print Python Dependencies
       run: |
         echo "Installed packages:"
         pip freeze
-    
+
     - name: Set up test environment variables
       run: |
         echo "ENVIRONMENT=development" >> $GITHUB_ENV
@@ -53,42 +54,42 @@ jobs:
         echo "OPENAI_API_KEY=test-key" >> $GITHUB_ENV
         echo "WEAVIATE_URL=https://test.weaviate.com" >> $GITHUB_ENV
         echo "WEAVIATE_API_KEY=test-key" >> $GITHUB_ENV
-    
+
     - name: Run pre-merge validation
       run: |
         python scripts/pre_merge_validation.py --environment dev --quick
-    
+
     - name: Upload validation report
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: validation-report
         path: validation_report.json
-    
+
     - name: Comment validation results on PR
       if: github.event_name == 'pull_request' && always()
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          
+
           let reportContent = "Validation report not found";
           try {
             const report = JSON.parse(fs.readFileSync('validation_report.json', 'utf8'));
             const passedTests = report.summary.passed;
             const totalTests = report.summary.total_tests;
             const successRate = report.summary.success_rate.toFixed(1);
-            
+
             const status = passedTests === totalTests ? '✅ PASSED' : '❌ FAILED';
-            
-            const statusMessage = passedTests === totalTests ? 
-              '🎉 **All tests passed! Safe to merge.**' : 
+
+            const statusMessage = passedTests === totalTests ?
+              '🎉 **All tests passed! Safe to merge.**' :
               '⚠️ **Merge blocked due to failed tests. Please fix issues before merging.**';
-            
-            const testResults = report.results.map(r => 
+
+            const testResults = report.results.map(r =>
               `- ${r.passed ? '✅' : '❌'} **${r.name}**: ${r.message}`
             ).join('\\n');
-            
+
             reportContent = [
               `## 🔍 Pre-Merge Validation Results ${status}`,
               '',
@@ -114,7 +115,7 @@ jobs:
           } catch (error) {
             reportContent = `❌ **Validation failed to complete**\n\nError: ${error.message}`;
           }
-          
+
           await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -124,10 +125,10 @@ jobs:
 
   security-scan:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Run security scan
       run: |
         # Debug: Show current directory and files
@@ -138,14 +139,14 @@ jobs:
         git ls-files | grep config.py || echo "No config.py files found in git"
         echo "Looking for api/core/config.py:"
         find . -name "config.py" -path "*/api/core/*" || echo "❌ api/core/config.py not found!"
-        
+
         # Check for hardcoded secrets
         demo_key="demo-secret-key-change-in-production"
         if grep -r "$demo_key" . --exclude-dir=.git --exclude-dir=.github --exclude-dir=scripts; then
           echo "❌ Found hardcoded demo secret key!"
           exit 1
         fi
-        
+
         # Check for proper environment handling - use find to locate config.py
         config_file=$(find . -name "config.py" -path "*/api/core/*")
         if [ -z "$config_file" ]; then
@@ -154,39 +155,39 @@ jobs:
           find . -name "config.py" -type f
           exit 1
         fi
-        
+
         if ! grep -q "SECRET_KEY environment variable is required in production" "$config_file"; then
           echo "❌ Production secret key validation not found in $config_file!"
           exit 1
         fi
-        
+
         echo "✅ Security scan passed"
 
   lint-and-format:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: 3.12
-    
+
     - name: Install linting tools
       run: |
         pip install flake8 black isort
-    
+
     - name: Run Black (code formatting)
       run: |
         black --check --diff .
       continue-on-error: true
-    
+
     - name: Run isort (import sorting)
       run: |
         isort --check-only --diff .
       continue-on-error: true
-    
+
     - name: Run flake8 (linting)
       run: |
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
