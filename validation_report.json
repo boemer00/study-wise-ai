@@ -1,7 +1,7 @@
 {
-  "timestamp": "2025-06-17T15:10:22.984812",
+  "timestamp": "2025-06-17T15:10:43.657385",
   "environment": "dev",
-  "duration_seconds": 0.6412620544433594,
+  "duration_seconds": 0.602449893951416,
   "summary": {
     "total_tests": 5,
     "passed": 5,
@@ -14,7 +14,7 @@
       "passed": true,
       "message": "All 9 critical modules imported successfully",
       "details": {},
-      "timestamp": "2025-06-17T15:10:22.953731"
+      "timestamp": "2025-06-17T15:10:43.625565"
     },
     {
       "name": "Development Config",
@@ -23,14 +23,14 @@
       "details": {
         "secret_key_length": 43
       },
-      "timestamp": "2025-06-17T15:10:22.953744"
+      "timestamp": "2025-06-17T15:10:43.625578"
     },
     {
       "name": "Production Config Validation",
       "passed": true,
       "message": "Correctly requires SECRET_KEY in production",
       "details": {},
-      "timestamp": "2025-06-17T15:10:22.955737"
+      "timestamp": "2025-06-17T15:10:43.627646"
     },
     {
       "name": "Secret Key Generation",
@@ -40,7 +40,7 @@
         "key_length": 43,
         "is_secure": true
       },
-      "timestamp": "2025-06-17T15:10:22.975570"
+      "timestamp": "2025-06-17T15:10:43.648017"
     },
     {
       "name": "FastAPI App Creation",
@@ -62,7 +62,7 @@
           "/api/v1/chat/conversations/{conversation_id}/history"
         ]
       },
-      "timestamp": "2025-06-17T15:10:22.984760"
+      "timestamp": "2025-06-17T15:10:43.657321"
     }
   ]
 }
