@@ -76,27 +76,32 @@ jobs:
             
             const status = passedTests === totalTests ? '✅ PASSED' : '❌ FAILED';
             
-            reportContent = `## 🔍 Pre-Merge Validation Results ${status}
+            const statusMessage = passedTests === totalTests ? 
+              '🎉 **All tests passed! Safe to merge.**' : 
+              '⚠️ **Merge blocked due to failed tests. Please fix issues before merging.**';
             
+            const testResults = report.results.map(r => 
+              `- ${r.passed ? '✅' : '❌'} **${r.name}**: ${r.message}`
+            ).join('\\n');
+            
+            reportContent = `## 🔍 Pre-Merge Validation Results ${status}
+
 **Summary:**
 - **Tests Passed:** ${passedTests}/${totalTests} (${successRate}%)
 - **Duration:** ${report.duration_seconds.toFixed(1)}s
 - **Environment:** ${report.environment}
 
 **Test Results:**
-${report.results.map(r => `- ${r.passed ? '✅' : '❌'} **${r.name}**: ${r.message}`).join('\n')}
+${testResults}
 
-${passedTests === totalTests ? 
-  '🎉 **All tests passed! Safe to merge.**' : 
-  '⚠️ **Merge blocked due to failed tests. Please fix issues before merging.**'
-}
+${statusMessage}
 
 <details>
 <summary>📄 View detailed report</summary>
 
-\`\`\`json
+\\\`\\\`\\\`json
 ${JSON.stringify(report, null, 2)}
-\`\`\`
+\\\`\\\`\\\`
 
 </details>`;
           } catch (error) {
