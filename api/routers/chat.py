@@ -23,7 +23,7 @@ from api.core.dependencies import (
     verify_conversation_access,
     get_pagination_params
 )
-from conversation.rag import StudyAssistant
+from src.conversation.rag import StudyAssistant
 
 
 router = APIRouter()
