@@ -4,6 +4,7 @@
 .idea/
 .vscode/
 raw_data/
+archive_legacy/
 *.log
 *.backup
 *.bak

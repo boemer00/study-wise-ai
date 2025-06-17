@@ -1,0 +1,68 @@
+{
+  "timestamp": "2025-06-17T14:16:14.626450",
+  "environment": "dev",
+  "duration_seconds": 0.6581289768218994,
+  "summary": {
+    "total_tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "name": "Python Imports",
+      "passed": true,
+      "message": "All 9 critical modules imported successfully",
+      "details": {},
+      "timestamp": "2025-06-17T14:16:14.591679"
+    },
+    {
+      "name": "Development Config",
+      "passed": true,
+      "message": "Auto-generated secure secret key",
+      "details": {
+        "secret_key_length": 43
+      },
+      "timestamp": "2025-06-17T14:16:14.591693"
+    },
+    {
+      "name": "Production Config Validation",
+      "passed": true,
+      "message": "Correctly requires SECRET_KEY in production",
+      "details": {},
+      "timestamp": "2025-06-17T14:16:14.594381"
+    },
+    {
+      "name": "Secret Key Generation",
+      "passed": true,
+      "message": "Generated secure key of length 43",
+      "details": {
+        "key_length": 43,
+        "is_secure": true
+      },
+      "timestamp": "2025-06-17T14:16:14.616886"
+    },
+    {
+      "name": "FastAPI App Creation",
+      "passed": true,
+      "message": "App created with 36 routes",
+      "details": {
+        "routes_count": 36,
+        "missing_routes": [],
+        "sample_routes": [
+          "/openapi.json",
+          "/docs",
+          "/docs/oauth2-redirect",
+          "/redoc",
+          "/",
+          "/health",
+          "/api/v1/chat/conversations/create-friendly",
+          "/api/v1/chat/conversations",
+          "/api/v1/chat/conversations/{conversation_id}/messages",
+          "/api/v1/chat/conversations/{conversation_id}/history"
+        ]
+      },
+      "timestamp": "2025-06-17T14:16:14.626382"
+    }
+  ]
+}

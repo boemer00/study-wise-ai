@@ -1,0 +1,163 @@
+name: Pre-Merge Validation
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ feature/*, hotfix/*, release/* ]
+
+env:
+  ENVIRONMENT: development
+  SECRET_KEY: test-secret-key-for-ci-validation
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.12]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Set up test environment variables
+      run: |
+        echo "ENVIRONMENT=development" >> $GITHUB_ENV
+        echo "SECRET_KEY=test-secret-key-for-ci-validation" >> $GITHUB_ENV
+        echo "SUPABASE_URL=https://test.supabase.co" >> $GITHUB_ENV
+        echo "SUPABASE_KEY=test-key" >> $GITHUB_ENV
+        echo "OPENAI_API_KEY=test-key" >> $GITHUB_ENV
+        echo "WEAVIATE_URL=https://test.weaviate.com" >> $GITHUB_ENV
+        echo "WEAVIATE_API_KEY=test-key" >> $GITHUB_ENV
+    
+    - name: Run pre-merge validation
+      run: |
+        python scripts/pre_merge_validation.py --environment dev
+    
+    - name: Upload validation report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: validation-report
+        path: validation_report.json
+    
+    - name: Comment validation results on PR
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let reportContent = "Validation report not found";
+          try {
+            const report = JSON.parse(fs.readFileSync('validation_report.json', 'utf8'));
+            const passedTests = report.summary.passed;
+            const totalTests = report.summary.total_tests;
+            const successRate = report.summary.success_rate.toFixed(1);
+            
+            const status = passedTests === totalTests ? '✅ PASSED' : '❌ FAILED';
+            
+            reportContent = `## 🔍 Pre-Merge Validation Results ${status}
+            
+**Summary:**
+- **Tests Passed:** ${passedTests}/${totalTests} (${successRate}%)
+- **Duration:** ${report.duration_seconds.toFixed(1)}s
+- **Environment:** ${report.environment}
+
+**Test Results:**
+${report.results.map(r => `- ${r.passed ? '✅' : '❌'} **${r.name}**: ${r.message}`).join('\n')}
+
+${passedTests === totalTests ? 
+  '🎉 **All tests passed! Safe to merge.**' : 
+  '⚠️ **Merge blocked due to failed tests. Please fix issues before merging.**'
+}
+
+<details>
+<summary>📄 View detailed report</summary>
+
+\`\`\`json
+${JSON.stringify(report, null, 2)}
+\`\`\`
+
+</details>`;
+          } catch (error) {
+            reportContent = `❌ **Validation failed to complete**\n\nError: ${error.message}`;
+          }
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: reportContent
+          });
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run security scan
+      run: |
+        # Check for hardcoded secrets
+        if grep -r "demo-secret-key-change-in-production" . --exclude-dir=.git --exclude-dir=.github; then
+          echo "❌ Found hardcoded demo secret key!"
+          exit 1
+        fi
+        
+        # Check for proper environment handling
+        if ! grep -q "SECRET_KEY.*environment variable.*required.*production" api/core/config.py; then
+          echo "❌ Production secret key validation not found!"
+          exit 1
+        fi
+        
+        echo "✅ Security scan passed"
+
+  lint-and-format:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
+    
+    - name: Install linting tools
+      run: |
+        pip install flake8 black isort
+    
+    - name: Run Black (code formatting)
+      run: |
+        black --check --diff .
+      continue-on-error: true
+    
+    - name: Run isort (import sorting)
+      run: |
+        isort --check-only --diff .
+      continue-on-error: true
+    
+    - name: Run flake8 (linting)
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      continue-on-error: true
