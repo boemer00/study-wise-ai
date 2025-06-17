@@ -140,17 +140,15 @@ class PreMergeValidator:
             os.environ.pop('SECRET_KEY', None)  # Remove if exists
             
             try:
-                from importlib import reload
-                import api.core.config
-                reload(api.core.config)
-                prod_settings = api.core.config.get_settings()
+                from api.core.config import get_settings_no_cache
+                prod_settings = get_settings_no_cache()
                 self.add_result(
                     "Production Config Validation",
                     False,
                     "Production should require SECRET_KEY but didn't fail"
                 )
             except Exception as e:
-                if "SECRET_KEY" in str(e):
+                if "SECRET_KEY environment variable is required in production" in str(e):
                     self.add_result(
                         "Production Config Validation",
                         True,

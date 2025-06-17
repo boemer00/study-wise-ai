@@ -125,6 +125,13 @@ jobs:
     
     - name: Run security scan
       run: |
+        # Debug: Show current directory and files
+        echo "Current directory: $(pwd)"
+        echo "Files in current directory:"
+        ls -la
+        echo "Looking for api/core/config.py:"
+        find . -name "config.py" -path "*/api/core/*" || echo "config.py not found"
+        
         # Check for hardcoded secrets
         demo_key="demo-secret-key-change-in-production"
         if grep -r "$demo_key" . --exclude-dir=.git --exclude-dir=.github --exclude-dir=scripts; then
@@ -132,9 +139,15 @@ jobs:
           exit 1
         fi
         
-        # Check for proper environment handling
-        if ! grep -q "SECRET_KEY environment variable is required in production" api/core/config.py; then
-          echo "❌ Production secret key validation not found!"
+        # Check for proper environment handling - use find to locate config.py
+        config_file=$(find . -name "config.py" -path "*/api/core/*")
+        if [ -z "$config_file" ]; then
+          echo "❌ api/core/config.py not found!"
+          exit 1
+        fi
+        
+        if ! grep -q "SECRET_KEY environment variable is required in production" "$config_file"; then
+          echo "❌ Production secret key validation not found in $config_file!"
           exit 1
         fi
         
