@@ -299,13 +299,17 @@ class WeaviateClient:
                 if distance > distance_threshold:
                     continue
 
+                # Get metadata safely - handle None values
+                metadata_raw = obj.properties.get('metadata')
+                metadata = self._parse_metadata(metadata_raw) if metadata_raw else {}
+                
                 result = {
                     'document_id': obj.properties.get('document_id', ''),
                     'chunk_id': obj.properties.get('chunk_id', str(obj.uuid)),
                     'title': obj.properties.get('title', ''),
                     'content': obj.properties.get('content', ''),
                     'page_number': obj.properties.get('page_number'),
-                    'metadata': self._parse_metadata(obj.properties.get('metadata', '{}')),
+                    'metadata': metadata,
                     '_additional': {
                         'distance': float(distance),
                         'id': str(obj.uuid)

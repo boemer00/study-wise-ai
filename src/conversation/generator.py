@@ -52,7 +52,10 @@ class ResponseGenerator:
             temperature: Creativity/randomness of responses (0-1)
             include_sources: Whether to include source citations
         """
-        self.openai_client = AsyncOpenAI(api_key=openai_api_key)
+        self.openai_client = AsyncOpenAI(
+            api_key=openai_api_key,
+            timeout=30.0
+        )
         self.model_name = model_name
         self.max_response_tokens = max_response_tokens
         self.temperature = temperature

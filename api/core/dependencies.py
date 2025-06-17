@@ -44,7 +44,8 @@ async def get_study_assistant() -> StudyAssistant:
         # Get credentials from environment or settings
         openai_key = settings.openai_api_key or os.getenv('OPENAI_API_KEY')
         supabase_url = settings.supabase_url or os.getenv('SUPABASE_URL')
-        supabase_key = settings.supabase_key or os.getenv('SUPABASE_KEY')
+        # Use service role key for RAG system
+        supabase_key = settings.supabase_key or os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
         weaviate_url = settings.weaviate_url or os.getenv('WEAVIATE_URL')
         weaviate_key = settings.weaviate_api_key or os.getenv('WEAVIATE_API_KEY')
 
@@ -60,12 +61,13 @@ async def get_study_assistant() -> StudyAssistant:
         
         try:
             await _assistant_instance.initialize()
+            print("✅ StudyAssistant initialized successfully for API")
         except Exception as e:
             # Log error but don't raise - let endpoints handle fallback gracefully
-            print(f"StudyAssistant initialization failed: {str(e)}")
-            # Set to None so we don't retry repeatedly
-            _assistant_instance = None
-            raise
+            print(f"⚠️ StudyAssistant initialization failed: {str(e)}")
+            print("   API will use fallback mode for chat responses")
+            # Keep the non-initialized instance for graceful degradation
+            # The chat endpoints will catch initialization errors and use demo mode
             
     return _assistant_instance
 

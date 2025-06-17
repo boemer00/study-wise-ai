@@ -112,7 +112,7 @@ class StudyAssistant:
                 weaviate_client=weaviate_client,
                 openai_api_key=self.config['openai_api_key'],
                 max_chunks_per_query=10,
-                similarity_threshold=0.7,
+                similarity_threshold=0.5,  # More lenient threshold for better retrieval
                 rerank_enabled=self.config['enable_advanced_features']
             )
 

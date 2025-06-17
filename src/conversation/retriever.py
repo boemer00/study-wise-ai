@@ -54,7 +54,10 @@ class ContextRetriever:
             rerank_enabled: Whether to use reranking for better results
         """
         self.weaviate_client = weaviate_client
-        self.openai_client = AsyncOpenAI(api_key=openai_api_key)
+        self.openai_client = AsyncOpenAI(
+            api_key=openai_api_key,
+            timeout=30.0
+        )
         self.max_chunks_per_query = max_chunks_per_query
         self.similarity_threshold = similarity_threshold
         self.rerank_enabled = rerank_enabled
@@ -664,7 +667,7 @@ Classification (one word only):"""
         """
         try:
             response = await self.openai_client.embeddings.create(
-                model="text-embedding-ada-002",
+                model="text-embedding-3-small",
                 input=query.strip()
             )
 
