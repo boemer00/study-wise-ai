@@ -1,25 +1,117 @@
-openai>=1.5.0
-python-dotenv>=1.0.0
-langchain>=0.0.267
-PyMuPDF>=1.22.5  # For PDF processing (fitz)
-python-docx>=0.8.11  # For DOCX processing
-python-pptx>=0.6.21  # For PPT/PPTX processing
-requests>=2.30.0  # For URL downloads
-pytest>=7.3.1  # For testing
-pytest-mock>=3.10.0  # For mocking in tests
-requests-mock>=1.10.0  # For mocking HTTP requests in tests
-pytest-asyncio>=0.21.0  # For async testing
-pytest-xdist>=3.2.0  # For parallel test execution
-# Weaviate dependencies
-weaviate-client>=3.25.0  # Weaviate Python client
-fastapi>=0.104.0  # For API endpoints
-uvicorn>=0.24.0  # ASGI server for FastAPI
-python-multipart>=0.0.6  # For file uploads in FastAPI
-# Supabase dependencies
-supabase>=2.0.0  # Supabase Python client
-postgrest>=0.13.0  # PostgreSQL REST API client
-# Integration testing dependencies
-reportlab>=4.0.0  # For PDF generation in tests
-faker>=20.0.0  # For generating realistic test data
-psutil>=5.9.0  # For system monitoring in performance tests
-memory-profiler>=0.61.0  # For memory usage testing
+# StudyWise AI - Consolidated Requirements
+# Install with: pip install -r requirements.txt
+# Versions match the current working environment
+
+# =============================================================================
+# CORE FRAMEWORK DEPENDENCIES
+# =============================================================================
+
+# Web Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# Request/Response Models
+pydantic==2.11.6
+pydantic-settings==2.1.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Environment Configuration
+python-dotenv==1.0.0
+
+# =============================================================================
+# AI/ML DEPENDENCIES
+# =============================================================================
+
+# OpenAI API
+openai==1.88.0
+
+# LangChain Framework
+langchain==0.0.267
+langsmith==0.0.92
+
+# =============================================================================
+# DATABASE DEPENDENCIES
+# =============================================================================
+
+# Supabase (PostgreSQL backend)
+supabase==2.15.3
+postgrest==1.0.2
+
+# Vector Database (Weaviate)
+weaviate-client==4.15.0
+
+# =============================================================================
+# DOCUMENT PROCESSING DEPENDENCIES
+# =============================================================================
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.10.0
+pymupdf==1.23.26
+
+# DOCX Processing
+python-docx==1.1.0
+docx2txt==0.8
+
+# PowerPoint Processing
+python-pptx==1.0.2
+
+# File Type Detection
+python-magic==0.4.27
+filetype==1.2.0
+
+# Text Processing
+charset-normalizer==3.3.2
+
+# =============================================================================
+# AUTHENTICATION & SECURITY
+# =============================================================================
+
+python-jose==3.3.0
+passlib==1.7.4
+
+# Rate Limiting
+slowapi==0.1.9
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+# HTTP Requests
+requests==2.31.0
+
+# Logging
+structlog==23.2.0
+
+# System Monitoring
+psutil==7.0.0
+memory-profiler==0.61.0
+
+# =============================================================================
+# TESTING DEPENDENCIES
+# =============================================================================
+
+# Core Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.14.1
+pytest-xdist==3.7.0
+
+# Test Data Generation
+Faker==37.4.0
+reportlab==4.4.1
+
+# HTTP Request Mocking
+requests-mock==1.12.1
+
+# =============================================================================
+# OPTIONAL DEPENDENCIES (commented out)
+# =============================================================================
+
+# Enhanced PDF processing (requires poppler system dependency)
+# pdfminer.six==20221105  # Currently installed but optional
+# pdf2image  # Not currently installed
