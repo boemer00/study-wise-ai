@@ -109,7 +109,7 @@ bin/
 *.rej
 *.bak
 *.stackdump
-core
+# core
 *.cpc
 
 # Ruby
