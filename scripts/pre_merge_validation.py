@@ -518,7 +518,8 @@ class PreMergeValidator:
                 if secret_line:
                     secret_key = secret_line.split('=', 1)[1]
                     key_length = len(secret_key)
-                    key_is_secure = key_length >= 32 and secret_key != "demo-secret-key-change-in-production"
+                    demo_key = "demo-secret-key-change-in-production"
+                    key_is_secure = key_length >= 32 and secret_key != demo_key
                     
                     self.add_result(
                         "Secret Key Generation",

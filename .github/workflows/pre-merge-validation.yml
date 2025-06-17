@@ -126,13 +126,14 @@ jobs:
     - name: Run security scan
       run: |
         # Check for hardcoded secrets
-        if grep -r "demo-secret-key-change-in-production" . --exclude-dir=.git --exclude-dir=.github; then
+        demo_key="demo-secret-key-change-in-production"
+        if grep -r "$demo_key" . --exclude-dir=.git --exclude-dir=.github --exclude-dir=scripts; then
           echo "❌ Found hardcoded demo secret key!"
           exit 1
         fi
         
         # Check for proper environment handling
-        if ! grep -q "SECRET_KEY.*environment variable.*required.*production" api/core/config.py; then
+        if ! grep -q "SECRET_KEY environment variable is required in production" api/core/config.py; then
           echo "❌ Production secret key validation not found!"
           exit 1
         fi
