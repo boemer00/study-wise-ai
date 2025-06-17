@@ -57,7 +57,16 @@ async def get_study_assistant() -> StudyAssistant:
             model_name="gpt-4o-mini",  # Use more cost-effective model
             enable_advanced_features=True
         )
-        await _assistant_instance.initialize()
+        
+        try:
+            await _assistant_instance.initialize()
+        except Exception as e:
+            # Log error but don't raise - let endpoints handle fallback gracefully
+            print(f"StudyAssistant initialization failed: {str(e)}")
+            # Set to None so we don't retry repeatedly
+            _assistant_instance = None
+            raise
+            
     return _assistant_instance
 
 
