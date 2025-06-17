@@ -123,7 +123,7 @@ class BatchReviewRequest(BaseModel):
     reviews: List[Dict[str, Any]] = Field(
         ...,
         description="List of review data: {flashcard_id, rating, review_time}",
-        min_items=1
+        min_length=1
     )
     session_id: Optional[str] = Field(None, description="Study session identifier")
 
