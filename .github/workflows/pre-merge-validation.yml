@@ -129,8 +129,10 @@ jobs:
         echo "Current directory: $(pwd)"
         echo "Files in current directory:"
         ls -la
+        echo "Git tracked files containing config.py:"
+        git ls-files | grep config.py || echo "No config.py files found in git"
         echo "Looking for api/core/config.py:"
-        find . -name "config.py" -path "*/api/core/*" || echo "config.py not found"
+        find . -name "config.py" -path "*/api/core/*" || echo "❌ api/core/config.py not found!"
         
         # Check for hardcoded secrets
         demo_key="demo-secret-key-change-in-production"
@@ -143,6 +145,8 @@ jobs:
         config_file=$(find . -name "config.py" -path "*/api/core/*")
         if [ -z "$config_file" ]; then
           echo "❌ api/core/config.py not found!"
+          echo "Available config files:"
+          find . -name "config.py" -type f
           exit 1
         fi
         
