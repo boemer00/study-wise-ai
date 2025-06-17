@@ -9,7 +9,7 @@ on:
 env:
   ENVIRONMENT: development
   SECRET_KEY: test-secret-key-for-ci-validation
-  GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   validate:
