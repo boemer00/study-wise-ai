@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 from pathlib import Path
 from functools import lru_cache
 import fitz  # PyMuPDF - fastest PDF library
-import PyPDF2
+from pypdf import PdfReader
 from io import BytesIO
 
 # Configure logging
@@ -189,10 +189,10 @@ class PDFHandler:
         return '\n'.join(text_parts)
 
     def _extract_text_fallback(self, file_path: Path) -> str:
-        """Fallback text extraction using PyPDF2."""
+        """Fallback text extraction using pypdf."""
         try:
             with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_reader = PdfReader(file)
                 text_parts = []
 
                 for page in pdf_reader.pages:
@@ -267,12 +267,12 @@ class PDFHandler:
             raise
 
     def _extract_metadata_fallback(self, file_path: Path) -> Dict[str, Any]:
-        """Fallback metadata extraction using PyPDF2."""
+        """Fallback metadata extraction using pypdf."""
         metadata = {}
 
         try:
             with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_reader = PdfReader(file)
 
                 if pdf_reader.metadata:
                     metadata.update({
@@ -330,9 +330,9 @@ class PDFHandler:
                 return True, "Valid PDF file"
 
             except Exception as e:
-                # Try PyPDF2 fallback
+                # Try pypdf fallback
                 with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
+                    pdf_reader = PdfReader(file)
                     if len(pdf_reader.pages) == 0:
                         return False, "PDF contains no pages"
                     return True, "Valid PDF file"
@@ -360,10 +360,10 @@ class PDFHandler:
             return is_encrypted
 
         except Exception:
-            # Fallback to PyPDF2
+            # Fallback to pypdf
             try:
                 with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
+                    pdf_reader = PdfReader(file)
                     return pdf_reader.is_encrypted
             except Exception:
                 return False
@@ -418,10 +418,10 @@ class PDFHandler:
             return page_count
 
         except Exception:
-            # Fallback to PyPDF2
+            # Fallback to pypdf
             try:
                 with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
+                    pdf_reader = PdfReader(file)
                     return len(pdf_reader.pages)
             except Exception as e:
                 logger.error(f"Error getting page count: {e}")

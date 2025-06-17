@@ -67,7 +67,7 @@ async def upload_document(
 
     This endpoint now supports:
     - Text files (.txt, .md, .markdown): Basic text extraction
-    - PDF files (.pdf): Advanced extraction with PyMuPDF/PyPDF2 fallback
+    - PDF files (.pdf): Advanced extraction with PyMuPDF/pypdf fallback
     - DOCX files (.docx): Table extraction, image info, formatting preservation
 
     The uploaded document will be:

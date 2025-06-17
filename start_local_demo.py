@@ -1541,7 +1541,7 @@ if __name__ == "__main__":
     if REAL_PROCESSING_AVAILABLE:
         print("")
         print("   ✅ Real document processing ENABLED")
-        print("   🔧 PDF text extraction: PyMuPDF + PyPDF2 fallback")
+        print("   🔧 PDF text extraction: PyMuPDF + pypdf fallback")
         print("   🔧 Vector storage: Weaviate (if available)")
         print("   🔧 Metadata storage: Supabase (if available)")
     else:
