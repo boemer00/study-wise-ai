@@ -2,7 +2,8 @@
 User profile and statistics API routes
 """
 
-from typing import List
+from typing import List, Dict, Any
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.core.dependencies import get_current_user_id
@@ -14,7 +15,7 @@ router = APIRouter()
 @router.get("/profile")
 async def get_user_profile(
     user_id: str = Depends(get_current_user_id)
-) -> dict:
+) -> Dict[str, Any]:
     """
     Get user profile information.
 
@@ -24,8 +25,34 @@ async def get_user_profile(
     Returns:
         User profile data
     """
-    # TODO: Get user profile from database
-    pass
+    try:
+        # Return basic user profile structure
+        # In production, this would come from a user database
+        profile = {
+            "user_id": user_id,
+            "email": "user@example.com",  # Would come from JWT/Supabase user data
+            "display_name": "StudyWise User",
+            "created_at": datetime.utcnow().isoformat(),
+            "last_login": datetime.utcnow().isoformat(),
+            "preferences": {
+                "study_reminders": True,
+                "email_notifications": True,
+                "difficulty_preference": "intermediate",
+                "daily_goal": 20  # flashcards per day
+            },
+            "subscription": {
+                "plan": "free",
+                "features": ["basic_flashcards", "ai_chat", "document_upload"]
+            }
+        }
+        
+        return profile
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get user profile: {str(e)}"
+        )
 
 
 @router.get("/stats")
@@ -70,7 +97,7 @@ async def get_user_stats(
 @router.get("/conversations")
 async def get_user_conversations(
     user_id: str = Depends(get_current_user_id)
-) -> List[dict]:
+) -> List[Dict[str, Any]]:
     """
     Get user's conversation list.
 
@@ -80,5 +107,34 @@ async def get_user_conversations(
     Returns:
         List of user's conversations
     """
-    # TODO: Get user conversations from database
-    pass
+    try:
+        # Return basic conversation list structure
+        # In production, this would query the conversations database
+        conversations = [
+            {
+                "conversation_id": "conv-001",
+                "title": "Machine Learning Discussion",
+                "topic_focus": "Neural Networks",
+                "created_at": datetime.utcnow().isoformat(),
+                "last_message_at": datetime.utcnow().isoformat(),
+                "message_count": 8,
+                "status": "active"
+            },
+            {
+                "conversation_id": "conv-002", 
+                "title": "Python Programming Help",
+                "topic_focus": "Data Structures",
+                "created_at": datetime.utcnow().isoformat(),
+                "last_message_at": datetime.utcnow().isoformat(),
+                "message_count": 5,
+                "status": "active"
+            }
+        ]
+        
+        return conversations
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get user conversations: {str(e)}"
+        )
