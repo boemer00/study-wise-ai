@@ -2,7 +2,7 @@
 Dependency injection for FastAPI routes
 """
 
-from typing import Optional, Generator
+from typing import Optional, Generator, Dict, Any
 from functools import lru_cache
 import os
 import uuid
@@ -28,6 +28,34 @@ DEMO_USER_UUID = "550e8400-e29b-41d4-a716-446655440000"
 def is_development_mode() -> bool:
     """Check if the application is running in development mode."""
     return os.getenv('ENVIRONMENT', 'development').lower() in ['development', 'dev', 'local']
+
+
+def get_jwt_secret() -> str:
+    """
+    Get the JWT secret for token verification.
+    
+    For Supabase, this is typically the JWT secret from your project settings.
+    If not available, fall back to SECRET_KEY for development.
+    """
+    # Try Supabase JWT secret first (if available)
+    jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
+    if jwt_secret:
+        return jwt_secret
+    
+    # Fall back to SECRET_KEY for development
+    secret_key = os.getenv('SECRET_KEY')
+    if secret_key:
+        return secret_key
+    
+    # Last resort: use settings
+    settings = get_settings()
+    if settings.secret_key:
+        return settings.secret_key
+    
+    raise HTTPException(
+        status_code=500,
+        detail="No JWT secret configured. Set SUPABASE_JWT_SECRET or SECRET_KEY environment variable."
+    )
 
 
 async def get_study_assistant() -> StudyAssistant:
@@ -126,18 +154,38 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
         # Get JWT secret from Supabase
         supabase_key = settings.supabase_key or os.getenv('SUPABASE_KEY')
         
-        # Decode JWT without verification first to get the header
-        unverified_header = jwt.get_unverified_header(token.credentials)
+        # Get JWT secret for signature verification
+        try:
+            jwt_secret = get_jwt_secret()
+        except HTTPException as e:
+            # In development mode, allow fallback to demo token if JWT secret is not configured
+            if dev_mode and token.credentials.startswith("demo_token_"):
+                print("⚠️ JWT secret not configured, allowing demo token in development mode")
+                return DEMO_USER_UUID
+            raise e
         
-        # For proper Supabase JWT validation, we should fetch JWKS
-        # For now, we'll do basic validation with signature checking disabled
-        # TODO: Implement proper JWKS validation for production
-        
-        payload = jwt.decode(
-            token.credentials,
-            options={"verify_signature": False},  # TODO: Enable signature verification
-            algorithms=["HS256"]
-        )
+        # Decode and verify JWT signature
+        try:
+            payload = jwt.decode(
+                token.credentials,
+                jwt_secret,
+                algorithms=["HS256", "RS256"],  # Support both symmetric and asymmetric
+                options={"verify_signature": True, "verify_exp": True}
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=401,
+                detail="Token has expired"
+            )
+        except jwt.InvalidTokenError as e:
+            # In development mode, allow fallback to demo token
+            if dev_mode and token.credentials.startswith("demo_token_"):
+                print("⚠️ Invalid JWT token, allowing demo token in development mode")
+                return DEMO_USER_UUID
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid token: {str(e)}"
+            )
         
         # Extract user ID from token
         user_id = payload.get("sub")
