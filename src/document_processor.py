@@ -167,6 +167,7 @@ class DocumentProcessor:
         file_type: str,
         file_size: int,
         user_id: str,
+        user_jwt: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         chunk_size: int = 1000,
         overlap: int = 200
@@ -202,12 +203,13 @@ class DocumentProcessor:
             if self.supabase_client:
                 try:
                     supabase_id = await self._store_document_metadata(
-                        document_id, title, file_type, file_size, user_id, metadata, content
+                        document_id, title, file_type, file_size, user_id, user_jwt, metadata, content
                     )
                     result.supabase_id = supabase_id
                     logger.info(f"Document metadata stored in Supabase: {supabase_id}")
                 except Exception as e:
                     logger.error(f"Failed to store in Supabase: {e}")
+                    logger.error(f"Supabase error details: {type(e).__name__}: {str(e)}")
                     result.errors.append(f"Supabase storage failed: {str(e)}")
 
             # Step 2: Chunk text and store in Weaviate
@@ -247,6 +249,7 @@ class DocumentProcessor:
         file_type: str,
         file_size: int,
         user_id: str,
+        user_jwt: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         content: str = ""
     ) -> str:
@@ -284,8 +287,14 @@ class DocumentProcessor:
                 'extraction_method': metadata.get('extraction_method')
             })
 
-        # Insert into Supabase
-        result = self.supabase_client.table('documents').insert(document_data).execute()
+        # Insert into Supabase using user-authenticated client
+        if user_jwt:
+            from .supabase_client import get_user_supabase_client
+            user_client = get_user_supabase_client(user_jwt)
+            result = user_client.table('documents').insert(document_data).execute()
+        else:
+            # Fallback to service role client (for development)
+            result = self.supabase_client.table('documents').insert(document_data).execute()
 
         if result.data:
             return result.data[0]['document_id']

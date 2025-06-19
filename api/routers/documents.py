@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, Form
 from datetime import datetime
 
-from api.core.dependencies import get_current_user_id
+from api.core.dependencies import get_current_user_id, security
 from api.models.documents import (
     DocumentUploadResponse,
     DocumentListResponse,
@@ -18,6 +18,7 @@ from api.models.documents import (
     DocumentMetadata,
     DocumentUploadRequest
 )
+from api.models.flashcards import FlashcardGenerationResponse, FlashcardResponse, FlashcardLevel
 from src.document_processor import DocumentProcessor
 from src.flashcard_generator import FlashcardGenerator
 from src.flashcards_db import save_generated_flashcards
@@ -58,6 +59,7 @@ async def upload_document(
     extract_images_info: bool = Form(False),  # NEW: For PDF/DOCX
     preserve_formatting: bool = Form(False),  # NEW: For PDF/DOCX
     password: Optional[str] = Form(None),  # NEW: For encrypted PDFs
+    token: Optional[str] = Depends(security),
     user_id: str = Depends(get_current_user_id),
     processor: DocumentProcessor = Depends(get_document_processor),
     flashcard_gen: FlashcardGenerator = Depends(get_flashcard_generator)
@@ -186,6 +188,7 @@ async def upload_document(
                 file_type=file_extension,
                 file_size=file_size,
                 user_id=user_id,
+                user_jwt=token.credentials if token else None,
                 metadata=storage_metadata
             )
         else:
@@ -574,3 +577,126 @@ async def get_performance_stats(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get performance stats: {str(e)}")
+
+
+@router.post("/{document_id}/flashcards", response_model=FlashcardGenerationResponse)
+async def generate_flashcards_from_document(
+    document_id: str,
+    difficulty: FlashcardLevel = Form(FlashcardLevel.INTERMEDIATE),
+    limit: int = Form(8, ge=1, le=20),
+    user_id: str = Depends(get_current_user_id),
+    processor: DocumentProcessor = Depends(get_document_processor),
+    flashcard_gen: FlashcardGenerator = Depends(get_flashcard_generator)
+) -> FlashcardGenerationResponse:
+    """
+    Generate additional flashcards from an existing document.
+    
+    This endpoint allows users to generate more flashcards from a document
+    that has already been uploaded and processed. Useful for creating
+    flashcards with different difficulty levels or generating more cards
+    from the same content.
+    
+    Args:
+        document_id: ID of the existing document
+        difficulty: Difficulty level for generated flashcards
+        limit: Maximum number of flashcards to generate (1-20)
+        user_id: Authenticated user ID
+        processor: Document processor instance
+        flashcard_gen: Flashcard generator instance
+        
+    Returns:
+        FlashcardGenerationResponse with generated flashcards
+        
+    Raises:
+        HTTPException: If document not found or generation fails
+    """
+    try:
+        # First, verify the document exists and belongs to the user
+        # TODO: Add proper document ownership verification
+        
+        # Retrieve document content from storage
+        document_content = await processor.get_document_content(document_id, user_id)
+        
+        if not document_content:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Document {document_id} not found or you don't have access to it"
+            )
+        
+        # Extract text content for flashcard generation
+        text_content = document_content.get('content', '')
+        if not text_content or len(text_content.strip()) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Document content is too short to generate meaningful flashcards"
+            )
+        
+        # Generate flashcards using the flashcard generator
+        # Split content into chunks for better processing
+        content_chunks = [text_content[i:i+2000] for i in range(0, len(text_content), 2000)]
+        
+        try:
+            generated_flashcards = flashcard_gen.generate(
+                content_chunks[:10],  # Limit chunks for performance
+                difficulty.value
+            )
+            
+            # Limit to requested number of flashcards
+            limited_flashcards = generated_flashcards[:limit]
+            
+            # Save generated flashcards to database
+            saved_flashcard_ids = []
+            if limited_flashcards:
+                try:
+                    saved_flashcard_ids = save_generated_flashcards(
+                        limited_flashcards,
+                        user_id,
+                        document_id
+                    )
+                    logger.info(f"Successfully saved {len(saved_flashcard_ids)} flashcards for document {document_id}")
+                except Exception as save_error:
+                    logger.warning(f"Failed to save flashcards for document {document_id}: {str(save_error)}")
+                    # Continue anyway - flashcards were generated successfully
+            
+            # Convert to response format
+            flashcard_responses = []
+            for i, flashcard in enumerate(limited_flashcards):
+                flashcard_id = saved_flashcard_ids[i] if i < len(saved_flashcard_ids) else f"temp-{i}"
+                
+                flashcard_response = FlashcardResponse(
+                    id=flashcard_id,
+                    question=flashcard.get('question', ''),
+                    answer=flashcard.get('answer', ''),
+                    tags=flashcard.get('tags', []),
+                    level=difficulty,
+                    created_at=datetime.now(),
+                    user_id=user_id,
+                    metadata={
+                        'source_document_id': document_id,
+                        'generation_method': 'document_regeneration'
+                    }
+                )
+                flashcard_responses.append(flashcard_response)
+            
+            return FlashcardGenerationResponse(
+                flashcards=flashcard_responses,
+                total_generated=len(flashcard_responses),
+                source_type="document"
+            )
+            
+        except Exception as gen_error:
+            logger.error(f"Flashcard generation failed for document {document_id}: {str(gen_error)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate flashcards: {str(gen_error)}"
+            )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error generating flashcards for document {document_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate flashcards from document: {str(e)}"
+        )
