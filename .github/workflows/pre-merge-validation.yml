@@ -78,8 +78,11 @@ jobs:
         ls -la
         echo "Git tracked files containing config.py:"
         git ls-files | grep config.py || echo "No config.py files found in git"
-        echo "Looking for api/core/config.py:"
-        find . -name "config.py" -path "*/api/core/*" || echo "❌ api/core/config.py not found!"
+        echo "Looking for studywise/settings.py:"
+        if [ ! -f "studywise/settings.py" ]; then
+          echo "❌ studywise/settings.py not found!"
+          exit 1
+        fi
 
         # Check for hardcoded secrets
         demo_key="demo-secret-key-change-in-production"
@@ -88,14 +91,8 @@ jobs:
           exit 1
         fi
 
-        # Check for proper environment handling - use find to locate config.py
-        config_file=$(find . -name "config.py" -path "*/api/core/*")
-        if [ -z "$config_file" ]; then
-          echo "❌ api/core/config.py not found!"
-          echo "Available config files:"
-          find . -name "config.py" -type f
-          exit 1
-        fi
+        # Check for proper environment handling in unified settings
+        config_file="studywise/settings.py"
 
         if ! grep -q "SECRET_KEY environment variable is required in production" "$config_file"; then
           echo "❌ Production secret key validation not found in $config_file!"
