@@ -15,7 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from openai import AsyncOpenAI
+# New helper wrapper (migration in progress)
+from studywise.llm.openai_client import OpenAIClient, get_openai_client  # noqa: F401
 
 from .models import (
     ChatResponse,
@@ -40,6 +41,8 @@ class ResponseGenerator:
     def __init__(
         self,
         openai_api_key: str,
+        *,
+        openai_client: Optional[OpenAIClient] = None,
         model_name: str = "gpt-4",
         max_response_tokens: int = 1000,
         temperature: float = 0.7,
@@ -50,15 +53,18 @@ class ResponseGenerator:
 
         Args:
             openai_api_key: OpenAI API key
+            openai_client: OpenAI client
             model_name: OpenAI model to use for generation
             max_response_tokens: Maximum tokens in response
             temperature: Creativity/randomness of responses (0-1)
             include_sources: Whether to include source citations
         """
-        self.openai_client = AsyncOpenAI(
-            api_key=openai_api_key,
-            timeout=30.0
-        )
+        # TODO: Switch to unified OpenAIClient wrapper in implementation phase.
+        if openai_client is not None:
+            self.openai_client = openai_client  # type: ignore[assignment]
+        else:
+            # Default to unified wrapper
+            self.openai_client = get_openai_client()  # type: ignore[assignment]
         self.model_name = model_name
         self.max_response_tokens = max_response_tokens
         self.temperature = temperature
@@ -694,6 +700,15 @@ Core principles:
             OpenAIAPIError: If API call fails
         """
         try:
+            # If the unified wrapper is in use, leverage its chat() helper.
+            if hasattr(self.openai_client, "chat"):
+                return await self.openai_client.chat(
+                    messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+
+            # Fallback to legacy SDK call
             response = await self.openai_client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
@@ -701,7 +716,7 @@ Core principles:
                 temperature=temperature,
                 top_p=0.9,
                 frequency_penalty=0.1,
-                presence_penalty=0.1
+                presence_penalty=0.1,
             )
 
             if not response.choices:
