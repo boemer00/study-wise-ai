@@ -11,6 +11,9 @@ import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import openai
 from openai import AsyncOpenAI

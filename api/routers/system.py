@@ -6,6 +6,9 @@ import os
 import time
 from datetime import datetime
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import APIRouter, Depends, HTTPException
 

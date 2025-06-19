@@ -11,6 +11,9 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from openai import AsyncOpenAI
 

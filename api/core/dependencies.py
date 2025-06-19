@@ -5,6 +5,9 @@ Dependency injection for FastAPI routes
 from typing import Optional, Generator, Dict, Any
 from functools import lru_cache
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 import uuid
 import jwt
 import requests
