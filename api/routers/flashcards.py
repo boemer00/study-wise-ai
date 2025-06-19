@@ -3,7 +3,7 @@ Flashcard API routes
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from datetime import datetime, timedelta
 
 from api.models.flashcards import (
@@ -17,7 +17,9 @@ from api.models.flashcards import (
     StudySessionRequest,
     StudySessionResponse,
     UserFlashcardStats,
-    FlashcardLevel
+    FlashcardLevel,
+    FlashcardGenerateFromTextRequest,
+    FlashcardGenerationResponse
 )
 from api.core.dependencies import (
     get_current_user_id,
@@ -26,10 +28,12 @@ from api.core.dependencies import (
 )
 
 # Import the actual database functions
-from src.flashcards_db import get_flashcards, get_flashcard_by_id, update_flashcard_stats
+from src.flashcards_db import get_flashcards, get_flashcard_by_id, update_flashcard_stats, save_generated_flashcards
 # Import FSRS system
 from src.flashcards.scheduler import get_due_cards, get_scheduling_metrics, review_card, schedule_new_card
 from src.flashcards.models import CardRating
+# Import flashcard generator
+from src.flashcard_generator import FlashcardGenerator
 
 
 router = APIRouter()
@@ -518,3 +522,142 @@ async def get_user_flashcard_stats(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user stats: {str(e)}")
+
+
+def get_flashcard_generator() -> FlashcardGenerator:
+    """Get FlashcardGenerator instance."""
+    return FlashcardGenerator()
+
+
+@router.post("/generate", response_model=FlashcardGenerationResponse)
+async def generate_flashcards_from_text(
+    text: str = Form(...),
+    difficulty: str = Form("intermediate"),
+    limit: int = Form(8),
+    user_id: str = Depends(get_current_user_id),
+    flashcard_gen: FlashcardGenerator = Depends(get_flashcard_generator)
+) -> FlashcardGenerationResponse:
+    """
+    Generate flashcards from raw text input.
+    
+    This endpoint allows users to paste or type text content and
+    automatically generate flashcards from it. Useful for creating
+    flashcards from notes, articles, or any text content without
+    needing to upload a file.
+    
+    Args:
+        text: Text content to generate flashcards from
+        difficulty: Difficulty level (beginner, intermediate, advanced)
+        limit: Maximum number of flashcards to generate (1-20)
+        user_id: Authenticated user ID
+        flashcard_gen: Flashcard generator instance
+        
+    Returns:
+        FlashcardGenerationResponse with generated flashcards
+        
+    Raises:
+        HTTPException: If text is invalid or generation fails
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Validate text content
+        text_content = text.strip()
+        if len(text_content) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Text content is too short. Please provide at least 50 characters for meaningful flashcard generation."
+            )
+        
+        if len(text_content) > 10000:
+            raise HTTPException(
+                status_code=400,
+                detail="Text content is too long. Please limit to 10,000 characters for optimal processing."
+            )
+        
+        # Validate difficulty level
+        valid_difficulties = ['beginner', 'intermediate', 'advanced']
+        if difficulty not in valid_difficulties:
+            difficulty = 'intermediate'
+        
+        # Validate limit
+        if limit < 1 or limit > 20:
+            limit = 8
+        
+        # Split content into chunks for better processing
+        content_chunks = [text_content[i:i+2000] for i in range(0, len(text_content), 2000)]
+        
+        try:
+            # Generate flashcards using the flashcard generator
+            generated_flashcards = flashcard_gen.generate(
+                content_chunks[:5],  # Limit chunks for performance
+                difficulty
+            )
+            
+            # Limit to requested number of flashcards
+            limited_flashcards = generated_flashcards[:limit]
+            
+            if not limited_flashcards:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Could not generate any flashcards from the provided text. Please try with different content."
+                )
+            
+            # Save generated flashcards to database
+            saved_flashcard_ids = []
+            if limited_flashcards:
+                try:
+                    saved_flashcard_ids = save_generated_flashcards(
+                        limited_flashcards,
+                        user_id,
+                        None  # No document ID for text-based generation
+                    )
+                    logger.info(f"Successfully saved {len(saved_flashcard_ids)} flashcards from text for user {user_id}")
+                except Exception as save_error:
+                    logger.warning(f"Failed to save flashcards from text for user {user_id}: {str(save_error)}")
+                    # Continue anyway - flashcards were generated successfully
+            
+            # Convert to response format
+            flashcard_responses = []
+            for i, flashcard in enumerate(limited_flashcards):
+                flashcard_id = saved_flashcard_ids[i] if i < len(saved_flashcard_ids) else f"temp-text-{i}"
+                
+                flashcard_response = FlashcardResponse(
+                    id=flashcard_id,
+                    question=flashcard.get('question', ''),
+                    answer=flashcard.get('answer', ''),
+                    tags=flashcard.get('tags', []),
+                    level=FlashcardLevel(difficulty),
+                    created_at=datetime.now(),
+                    user_id=user_id,
+                    metadata={
+                        'source_type': 'text_input',
+                        'generation_method': 'text_to_flashcards',
+                        'text_length': len(text_content)
+                    }
+                )
+                flashcard_responses.append(flashcard_response)
+            
+            return FlashcardGenerationResponse(
+                flashcards=flashcard_responses,
+                total_generated=len(flashcard_responses),
+                source_type="text"
+            )
+            
+        except Exception as gen_error:
+            logger.error(f"Flashcard generation from text failed for user {user_id}: {str(gen_error)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate flashcards from text: {str(gen_error)}"
+            )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error generating flashcards from text for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process text for flashcard generation: {str(e)}"
+        )

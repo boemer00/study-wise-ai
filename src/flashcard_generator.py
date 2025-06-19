@@ -8,6 +8,10 @@ import os
 import re
 import logging
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)

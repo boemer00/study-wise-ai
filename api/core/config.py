@@ -6,6 +6,9 @@ import os
 import secrets
 from functools import lru_cache
 from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator, model_validator

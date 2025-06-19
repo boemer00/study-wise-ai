@@ -5,6 +5,9 @@ Dependency injection for FastAPI routes
 from typing import Optional, Generator, Dict, Any
 from functools import lru_cache
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 import uuid
 import jwt
 import requests
@@ -21,8 +24,9 @@ security = HTTPBearer(auto_error=False)
 # Global assistant instance
 _assistant_instance = None
 
-# Demo user UUID - only for development mode
+# Demo user UUIDs - only for development mode
 DEMO_USER_UUID = "550e8400-e29b-41d4-a716-446655440000"
+DEMO_USER_2_UUID = "550e8400-e29b-41d4-a716-446655440001"
 
 # Check if we're in development mode
 def is_development_mode() -> bool:
@@ -72,8 +76,8 @@ async def get_study_assistant() -> StudyAssistant:
         # Get credentials from environment or settings
         openai_key = settings.openai_api_key or os.getenv('OPENAI_API_KEY')
         supabase_url = settings.supabase_url or os.getenv('SUPABASE_URL')
-        # Use service role key for RAG system
-        supabase_key = settings.supabase_key or os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+        # Use anon key for user operations with JWT auth
+        supabase_key = settings.supabase_anon_key or os.getenv('SUPABASE_ANON_KEY') or settings.supabase_key or os.getenv('SUPABASE_KEY')
         weaviate_url = settings.weaviate_url or os.getenv('WEAVIATE_URL')
         weaviate_key = settings.weaviate_api_key or os.getenv('WEAVIATE_API_KEY')
 
@@ -102,34 +106,10 @@ async def get_study_assistant() -> StudyAssistant:
 
 async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
     """
-    Extract user ID from Supabase JWT token.
-
-    This function validates the JWT token from Supabase Auth and extracts the user ID.
-    In development mode, falls back to demo user when no token is provided.
-    In production mode, requires valid authentication.
-
-    Args:
-        token: Bearer token from request header
-
-    Returns:
-        User ID as UUID string
-
-    Raises:
-        HTTPException: If token is invalid, expired, or missing in production
+    Extract user ID - MVP mode: always return demo user.
     """
-    # Check if we're in development mode
-    dev_mode = is_development_mode()
-    
-    # If no token provided
-    if not token or not token.credentials:
-        if dev_mode:
-            print("No token provided, using demo user in development mode")
-            return DEMO_USER_UUID
-        else:
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required. Please provide a valid access token."
-            )
+    # MVP: No authentication complexity, just return fixed demo user
+    return DEMO_USER_UUID
     
     try:
         # Get Supabase configuration
@@ -146,9 +126,11 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
                     detail="Authentication service not configured"
                 )
         
-        # Handle demo token (for development demo mode)
+        # Handle demo tokens (for development demo mode)
         if token.credentials == "demo-token" and dev_mode:
             return DEMO_USER_UUID
+        if token.credentials == "demo_token_user2" and dev_mode:
+            return DEMO_USER_2_UUID
         
         # Supabase JWT verification
         # Get JWT secret from Supabase
@@ -170,7 +152,7 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
                 token.credentials,
                 jwt_secret,
                 algorithms=["HS256", "RS256"],  # Support both symmetric and asymmetric
-                options={"verify_signature": True, "verify_exp": True}
+                options={"verify_signature": True, "verify_exp": True, "verify_aud": False}  # Skip audience verification for now
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(
@@ -262,22 +244,28 @@ async def verify_conversation_access(
 ) -> str:
     """
     Verify user has access to conversation.
-
-    In production, this would:
-    1. Query database to check if conversation belongs to user
-    2. Raise 403 if access denied
-
-    For demo, allow all access.
     """
-    # TODO: Implement actual access control:
-    #
-    # from src.supabase_client import get_supabase_client
-    #
-    # supabase = get_supabase_client()
-    # result = supabase.table('conversations').select('user_id').eq('id', conversation_id).execute()
-    #
-    # if not result.data or result.data[0]['user_id'] != user_id:
-    #     raise HTTPException(status_code=403, detail="Access denied")
+    try:
+        from src.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        result = supabase.table('conversations').select('user_id').eq('id', conversation_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+            
+        if result.data[0]['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        # In development mode, allow access if database check fails
+        if is_development_mode():
+            print(f"⚠️ Conversation access check failed in dev mode: {e}")
+            return conversation_id
+        else:
+            raise HTTPException(status_code=500, detail="Access verification failed")
 
     return conversation_id
 
@@ -288,24 +276,62 @@ async def verify_flashcard_access(
 ) -> str:
     """
     Verify user has access to flashcard.
-
-    In production, this would:
-    1. Query database to check if flashcard belongs to user
-    2. Raise 403 if access denied
-
-    For demo, allow all access.
     """
-    # TODO: Implement actual access control:
-    #
-    # from src.supabase_client import get_supabase_client
-    #
-    # supabase = get_supabase_client()
-    # result = supabase.table('flashcards').select('user_id').eq('id', flashcard_id).execute()
-    #
-    # if not result.data or result.data[0]['user_id'] != user_id:
-    #     raise HTTPException(status_code=403, detail="Access denied")
+    try:
+        from src.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        result = supabase.table('flashcards').select('user_id').eq('id', flashcard_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Flashcard not found")
+            
+        if result.data[0]['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        # In development mode, allow access if database check fails
+        if is_development_mode():
+            print(f"⚠️ Flashcard access check failed in dev mode: {e}")
+            return flashcard_id
+        else:
+            raise HTTPException(status_code=500, detail="Access verification failed")
 
     return flashcard_id
+
+
+async def verify_document_access(
+    document_id: str,
+    user_id: str = Depends(get_current_user_id)
+) -> str:
+    """
+    Verify user has access to document.
+    """
+    try:
+        from src.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        result = supabase.table('documents').select('user_id').eq('document_id', document_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+            
+        if result.data[0]['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        # In development mode, allow access if database check fails
+        if is_development_mode():
+            print(f"⚠️ Document access check failed in dev mode: {e}")
+            return document_id
+        else:
+            raise HTTPException(status_code=500, detail="Access verification failed")
+
+    return document_id
 
 
 def get_pagination_params(

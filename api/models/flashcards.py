@@ -36,6 +36,22 @@ class FlashcardUpdateRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
+class FlashcardGenerateFromTextRequest(BaseModel):
+    """Request model for generating flashcards from text."""
+    
+    text: str = Field(..., min_length=10, description="Text content to generate flashcards from")
+    difficulty: Optional[FlashcardLevel] = Field(FlashcardLevel.INTERMEDIATE, description="Difficulty level")
+    limit: Optional[int] = Field(8, ge=1, le=20, description="Maximum number of flashcards to generate")
+
+
+class FlashcardGenerationResponse(BaseModel):
+    """Response model for flashcard generation."""
+    
+    flashcards: List['FlashcardResponse'] = Field(..., description="Generated flashcards")
+    total_generated: int = Field(..., description="Number of flashcards generated")
+    source_type: str = Field(..., description="Source type (text or document)")
+
+
 class FlashcardResponse(BaseModel):
     """Response model for flashcard data."""
 

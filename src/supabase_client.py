@@ -31,3 +31,34 @@ def get_supabase_client() -> Client:
         )
 
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def get_user_supabase_client(user_jwt: Optional[str] = None) -> Client:
+    """
+    Initialize and return a user-authenticated Supabase client.
+    
+    Args:
+        user_jwt: JWT token for user authentication
+        
+    Returns:
+        Client: User-authenticated Supabase client
+        
+    Raises:
+        ValueError: If required environment variables are not set
+    """
+    if not SUPABASE_URL:
+        raise ValueError("SUPABASE_URL must be set in the .env file")
+    
+    # Use anon key for user operations with JWT
+    anon_key = os.getenv("SUPABASE_ANON_KEY") or SUPABASE_KEY
+    
+    if not anon_key:
+        raise ValueError("SUPABASE_ANON_KEY or SUPABASE_KEY must be set")
+    
+    client = create_client(SUPABASE_URL, anon_key)
+    
+    # Set user JWT token if provided
+    if user_jwt:
+        client.auth.set_session(user_jwt, None)
+    
+    return client

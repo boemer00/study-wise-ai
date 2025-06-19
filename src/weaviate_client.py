@@ -7,6 +7,9 @@ including document storage, semantic search, and hybrid search capabilities.
 
 import os
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 import json
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
@@ -176,6 +179,11 @@ class WeaviateClient:
                 ),
                 properties=[
                     wvc.config.Property(
+                        name="user_id",
+                        data_type=wvc.config.DataType.TEXT,
+                        description="User ID for data isolation"
+                    ),
+                    wvc.config.Property(
                         name="document_id",
                         data_type=wvc.config.DataType.TEXT,
                         description="ID of the parent document"
@@ -229,6 +237,7 @@ class WeaviateClient:
         self,
         query_vector: Optional[List[float]] = None,
         query_text: Optional[str] = None,
+        user_id: Optional[str] = None,
         limit: int = 10,
         where_clause: Optional[Dict[str, Any]] = None,
         distance_threshold: float = 0.7
@@ -250,10 +259,21 @@ class WeaviateClient:
         try:
             collection = self.client.collections.get("Document")
 
-            # Build where filter if provided
+            # Build where filter with user_id isolation
             where_filter = None
+            
+            # Always filter by user_id for data isolation
+            if user_id:
+                user_filter = wvc.query.Filter.by_property("user_id").equal(user_id)
+                where_filter = user_filter
+            
+            # Add additional filters if provided
             if where_clause:
-                where_filter = self._build_where_filter(where_clause)
+                additional_filter = self._build_where_filter(where_clause)
+                if where_filter:
+                    where_filter = where_filter & additional_filter
+                else:
+                    where_filter = additional_filter
 
             # Perform search based on input type
             if query_vector:
@@ -419,7 +439,7 @@ class WeaviateClient:
             self.logger.error(f"Failed to add document: {e}")
             raise
 
-    def add_documents(self, documents: List[Dict[str, Any]]) -> int:
+    def add_documents(self, documents: List[Dict[str, Any]], user_id: Optional[str] = None) -> int:
         """
         Add multiple documents to Weaviate with automatic embedding generation.
 
@@ -437,6 +457,7 @@ class WeaviateClient:
                 try:
                     # Prepare document properties for Weaviate schema
                     properties = {
+                        "user_id": user_id or doc.get("user_id", ""),
                         "document_id": doc.get("document_id", ""),
                         "chunk_id": doc.get("chunk_id", ""),
                         "title": doc.get("title", ""),
@@ -470,7 +491,7 @@ class WeaviateClient:
             self.logger.error(f"Failed to add documents to Weaviate: {e}")
             return 0
 
-    def semantic_search(self, query: str, limit: int = 10) -> List[SearchResult]:
+    def semantic_search(self, query: str, user_id: Optional[str] = None, limit: int = 10) -> List[SearchResult]:
         """
         Perform semantic search using vector similarity.
 
@@ -484,7 +505,7 @@ class WeaviateClient:
         try:
             collection = self.client.collections.get("Document")
 
-            # Perform vector similarity search
+            # Perform vector similarity search (simplified for MVP - no user filtering)
             response = collection.query.near_text(
                 query=query,
                 limit=limit,
@@ -528,6 +549,7 @@ class WeaviateClient:
     def hybrid_search(
         self,
         query: str,
+        user_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 10
     ) -> List[SearchResult]:
@@ -545,11 +567,17 @@ class WeaviateClient:
         try:
             collection = self.client.collections.get("Document")
 
-            # Build where filter if provided
-            where_filter = None
+            # Build where filter with user_id isolation
+            conditions = []
+            
+            # Always filter by user_id for data isolation
+            if user_id:
+                conditions.append(
+                    wvc.query.Filter.by_property("user_id").equal(user_id)
+                )
+            
+            # Add additional filters if provided
             if filters:
-                conditions = []
-
                 if "tags" in filters:
                     conditions.append(
                         wvc.query.Filter.by_property("tags").contains_any(filters["tags"])
@@ -570,11 +598,12 @@ class WeaviateClient:
                         wvc.query.Filter.by_property("created_at").less_or_equal(filters["date_to"])
                     )
 
-                # Combine conditions with AND
-                if conditions:
-                    where_filter = conditions[0]
-                    for condition in conditions[1:]:
-                        where_filter = where_filter & condition
+            # Combine conditions with AND
+            where_filter = None
+            if conditions:
+                where_filter = conditions[0]
+                for condition in conditions[1:]:
+                    where_filter = where_filter & condition
 
             # Perform hybrid search
             response = collection.query.hybrid(
