@@ -21,7 +21,7 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from api.routers import chat, flashcards, documents, users, system, admin, simple_auth
-from api.core.config import get_settings
+from studywise.settings import get_settings
 from api.core.dependencies import get_study_assistant
 from api.core.exceptions import StudyWiseAPIException, api_exception_handler
 

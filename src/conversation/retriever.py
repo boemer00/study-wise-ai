@@ -15,8 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import openai
-from openai import AsyncOpenAI
+# Legacy OpenAI SDK import removed; now using wrapper in studywise.llm
 
 from .models import (
     DocumentSource,
@@ -26,6 +25,10 @@ from .models import (
     MessageRole
 )
 from src.weaviate_client import WeaviateClient
+
+# New helper wrappers (migration in progress)
+from studywise.llm.openai_client import OpenAIClient, get_openai_client  # noqa: F401
+from studywise.vector.weaviate_client import VectorClient  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,9 @@ class ContextRetriever:
         self,
         weaviate_client: WeaviateClient,
         openai_api_key: str,
+        *,
+        openai_client: Optional[OpenAIClient] = None,
+        vector_client: Optional[VectorClient] = None,
         max_chunks_per_query: int = 10,
         similarity_threshold: float = 0.7,
         rerank_enabled: bool = True
@@ -52,15 +58,25 @@ class ContextRetriever:
         Args:
             weaviate_client: Configured Weaviate client
             openai_api_key: OpenAI API key for embeddings
+            openai_client: Optional OpenAI client
+            vector_client: Optional Vector client
             max_chunks_per_query: Maximum chunks to retrieve per query
             similarity_threshold: Minimum similarity score for relevance
             rerank_enabled: Whether to use reranking for better results
         """
-        self.weaviate_client = weaviate_client
-        self.openai_client = AsyncOpenAI(
-            api_key=openai_api_key,
-            timeout=30.0
-        )
+        # Prefer the new VectorClient wrapper when not explicitly provided.
+        if weaviate_client is None and vector_client is None:
+            from studywise.vector.weaviate_client import get_vector_client
+
+            self.weaviate_client = get_vector_client()  # type: ignore[assignment]
+        else:
+            self.weaviate_client = weaviate_client if weaviate_client is not None else vector_client  # type: ignore[assignment]
+
+        # Prefer the new OpenAIClient wrapper.
+        if openai_client is None:
+            self.openai_client = get_openai_client()  # type: ignore[assignment]
+        else:
+            self.openai_client = openai_client  # type: ignore[assignment]
         self.max_chunks_per_query = max_chunks_per_query
         self.similarity_threshold = similarity_threshold
         self.rerank_enabled = rerank_enabled
@@ -656,31 +672,24 @@ Classification (one word only):"""
         self,
         query: str
     ) -> List[float]:
-        """
-        Get embedding vector for query text.
-
-        Args:
-            query: Query text to embed
-
-        Returns:
-            Embedding vector
-
-        Raises:
-            EmbeddingError: If embedding generation fails
-        """
+        """Get embedding vector for a query."""
         try:
-            response = await self.openai_client.embeddings.create(
-                model="text-embedding-3-small",
-                input=query.strip()
-            )
+            # If using the wrapper, call `.embed`.
+            if hasattr(self.openai_client, "embed"):
+                return (await self.openai_client.embed([query]))[0]
 
-            embedding = response.data[0].embedding
-            logger.debug(f"Generated embedding for query: {len(embedding)} dimensions")
-            return embedding
+            # Fallback to legacy SDK signature.
+            response = await self.openai_client.embeddings.create(
+                model="text-embedding-ada-002",
+                input=query,
+            )
+            if not response.data:
+                raise EmbeddingError("No embedding data returned")
+            return response.data[0].embedding
 
         except Exception as e:
-            logger.error(f"Failed to generate query embedding: {str(e)}")
-            raise EmbeddingError(f"Failed to generate embedding: {str(e)}")
+            logger.error(f"Failed to get query embedding: {str(e)}")
+            raise EmbeddingError(f"Failed to get query embedding: {str(e)}")
 
 
 class RetrievalError(Exception):
