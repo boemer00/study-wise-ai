@@ -15,6 +15,7 @@ from pathlib import Path
 import uuid
 import time
 import hashlib
+import weaviate.classes as wvc
 
 from .supabase_client import get_supabase_client
 from .weaviate_client import create_weaviate_client
@@ -287,14 +288,13 @@ class DocumentProcessor:
                 'extraction_method': metadata.get('extraction_method')
             })
 
-        # Insert into Supabase using user-authenticated client
-        if user_jwt:
-            from .supabase_client import get_user_supabase_client
-            user_client = get_user_supabase_client(user_jwt)
-            result = user_client.table('documents').insert(document_data).execute()
-        else:
-            # Fallback to service role client (for development)
-            result = self.supabase_client.table('documents').insert(document_data).execute()
+        # Insert into Supabase (always via service-role client).
+        # Using a user-authenticated client would require both access and refresh tokens,
+        # but the backend only receives the JWT access token in the Authorization header.
+        # To avoid validation errors (`refresh_token` None), we consistently use the
+        # service-role client which has full insert privileges and scopes by user_id.
+
+        result = self.supabase_client.table('documents').insert(document_data).execute()
 
         if result.data:
             return result.data[0]['document_id']
@@ -442,7 +442,7 @@ class DocumentProcessor:
                     collection = self.weaviate_client.client.collections.get("Document")
                     # Delete all chunks for this document
                     collection.data.delete_many(
-                        where=collection.query.Filter.by_property("document_id").equal(document_id)
+                        where=wvc.query.Filter.by_property("document_id").equal(document_id)
                     )
                     logger.info(f"Deleted document chunks from Weaviate: {document_id}")
                 except Exception as e:
@@ -858,3 +858,65 @@ class DocumentProcessor:
         self._processing_cache.clear()
         self.docx_handler.clear_cache()
         logger.info("All caches cleared")
+
+    async def delete_all_user_data(self, user_id: str) -> bool:
+        """
+        Delete all data for a user from both Supabase and Weaviate.
+        
+        Args:
+            user_id: The user ID to clean up
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.info(f"Starting cleanup for user: {user_id}")
+        success = True
+        
+        try:
+            # 1. Delete from Weaviate first (vector chunks)
+            if self.weaviate_client:
+                try:
+                    collection = self.weaviate_client.client.collections.get("Document")
+                    collection.data.delete_many(
+                        where=wvc.query.Filter.by_property("user_id").equal(user_id)
+                    )
+                    logger.info(f"Deleted all Weaviate chunks for user: {user_id}")
+                except Exception as e:
+                    logger.error(f"Failed to delete Weaviate data for user {user_id}: {e}")
+                    success = False
+            
+            # 2. Delete from Supabase (metadata)
+            if self.supabase_client:
+                try:
+                    # Delete documents
+                    docs_result = self.supabase_client.table('documents')\
+                        .delete()\
+                        .eq('user_id', user_id)\
+                        .execute()
+                    
+                    # Try to delete flashcards if table exists
+                    try:
+                        cards_result = self.supabase_client.table('flashcards')\
+                            .delete()\
+                            .eq('user_id', user_id)\
+                            .execute()
+                        logger.info(f"Deleted flashcards for user: {user_id}")
+                    except Exception:
+                        # Flashcards table may not exist yet
+                        pass
+                    
+                    logger.info(f"Deleted all Supabase data for user: {user_id}")
+                except Exception as e:
+                    logger.error(f"Failed to delete Supabase data for user {user_id}: {e}")
+                    success = False
+            
+            if success:
+                logger.info(f"Successfully cleaned up all data for user: {user_id}")
+            else:
+                logger.warning(f"Partial cleanup completed for user: {user_id}")
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"User cleanup failed for {user_id}: {e}")
+            return False

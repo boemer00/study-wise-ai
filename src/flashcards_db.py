@@ -112,7 +112,8 @@ def get_flashcards(
     limit: int = 100,
     offset: int = 0,
     tags: Optional[List[str]] = None,
-    level: Optional[str] = None
+    level: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Retrieve flashcards from the database with optional filtering.
@@ -122,12 +123,19 @@ def get_flashcards(
         offset: Number of flashcards to skip
         tags: List of tags to filter by
         level: Difficulty level to filter by
+        user_id: UUID of the user to filter by
 
     Returns:
         List[Dict[str, Any]]: List of flashcard objects
     """
     supabase = get_supabase_client()
+
+    # Base query
     query = supabase.table('flashcards').select('*')
+
+    # Scope to current user if provided
+    if user_id:
+        query = query.eq('user_id', user_id)
 
     # Apply filters if provided
     if level:

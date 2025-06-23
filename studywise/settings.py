@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # Database – Supabase
     # ------------------------------------------------------------------
     supabase_url: Optional[str] = None
+    # Complete Supabase credentials set
+    supabase_key: Optional[str] = None  # Generic service/anon key alias used in legacy code
     supabase_anon_key: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
 
