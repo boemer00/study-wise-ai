@@ -39,12 +39,17 @@ def get_jwt_secret() -> str:
     Get the JWT secret for token verification.
 
     For Supabase, this is typically the JWT secret from your project settings.
-    If not available, fall back to SECRET_KEY for development.
+    If not available, fall back to JWT_SECRET or SECRET_KEY for development.
     """
-    # Try Supabase JWT secret first (if available)
-    jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
+    # Try JWT_SECRET first (used by simple_auth.py)
+    jwt_secret = os.getenv('JWT_SECRET')
     if jwt_secret:
         return jwt_secret
+    
+    # Try Supabase JWT secret (if available)
+    supabase_jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
+    if supabase_jwt_secret:
+        return supabase_jwt_secret
 
     # Fall back to SECRET_KEY for development
     secret_key = os.getenv('SECRET_KEY')
@@ -58,7 +63,7 @@ def get_jwt_secret() -> str:
 
     raise HTTPException(
         status_code=500,
-        detail="No JWT secret configured. Set SUPABASE_JWT_SECRET or SECRET_KEY environment variable."
+        detail="No JWT secret configured. Set JWT_SECRET, SUPABASE_JWT_SECRET or SECRET_KEY environment variable."
     )
 
 
@@ -106,10 +111,24 @@ async def get_study_assistant() -> StudyAssistant:
 
 async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
     """
-    Extract user ID - MVP mode: always return demo user.
+    Extract user ID from the provided JWT bearer token.
+
+    This function validates the JWT and returns the user UUID found in the
+    "sub" claim. It raises an HTTP 401 error if the token is missing, invalid
+    or expired. In development mode (see ``ENVIRONMENT`` env-var) certain demo
+    tokens are still accepted for local testing.
     """
-    # MVP: No authentication complexity, just return fixed demo user
-    return DEMO_USER_UUID
+    # Determine if we are running in development mode to allow certain
+    # fallbacks later in the function.
+    dev_mode: bool = is_development_mode()
+
+    # Require a token in production. In development we still require a token
+    # but we may allow specific hard-coded demo tokens further below.
+    if not token or not token.credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required"
+        )
 
     try:
         # Get Supabase configuration
@@ -143,7 +162,7 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
             # In development mode, allow fallback to demo token if JWT secret is not configured
             if dev_mode and token.credentials.startswith("demo_token_"):
                 print("⚠️ JWT secret not configured, allowing demo token in development mode")
-                return DEMO_USER_UUID
+                raise HTTPException(status_code=401, detail="Authentication failed: JWT secret not configured")
             raise e
 
         # Decode and verify JWT signature
@@ -163,7 +182,7 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
             # In development mode, allow fallback to demo token
             if dev_mode and token.credentials.startswith("demo_token_"):
                 print("⚠️ Invalid JWT token, allowing demo token in development mode")
-                return DEMO_USER_UUID
+                raise HTTPException(status_code=401, detail="Invalid token")
             raise HTTPException(
                 status_code=401,
                 detail=f"Invalid token: {str(e)}"
@@ -215,14 +234,10 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
         # Log error for debugging
         print(f"JWT validation error: {e}")
 
-        if dev_mode:
-            print("Authentication error in development mode, using demo user")
-            return DEMO_USER_UUID
-        else:
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication failed"
-            )
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed"
+        )
 
 
 def generate_user_uuid() -> str:

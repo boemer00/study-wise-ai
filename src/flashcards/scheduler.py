@@ -365,7 +365,10 @@ def get_due_cards(
         existing_fsrs_ids = {row['flashcard_id'] for row in (existing_fsrs_result.data or [])}
 
         # Get regular flashcards that don't have FSRS states yet
-        regular_query = supabase.table('flashcards').select('*').limit(remaining_limit * 2)  # Get extra to filter
+        regular_query = (supabase.table('flashcards')
+                         .select('*')
+                         .eq('user_id', user_id)
+                         .limit(remaining_limit * 2))  # Get extra to filter
         regular_result = regular_query.execute()
         regular_cards = regular_result.data if regular_result.data else []
 
@@ -547,26 +550,26 @@ def calculate_user_retention_rate(
 def get_daily_review_count(user_id: str) -> int:
     """
     Get the number of reviews completed today for a user.
-    
+
     Args:
         user_id: User identifier
-        
+
     Returns:
         Number of reviews completed today
     """
     supabase = get_supabase_client()
-    
+
     try:
         # Get today's date in UTC
         today = datetime.now(timezone.utc).date()
         today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
         today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
-        
+
         # Query reviews from today
         result = supabase.table('fsrs_review_history').select('id').eq('user_id', user_id).gte('review_time', today_start.isoformat()).lte('review_time', today_end.isoformat()).execute()
-        
+
         return len(result.data or [])
-        
+
     except Exception as e:
         print(f"Error getting daily review count: {e}")
         return 0

@@ -100,6 +100,7 @@ async def list_flashcards(
     try:
         # Get flashcards from database
         flashcards_data = get_flashcards(
+            user_id=user_id,
             limit=limit,
             offset=skip,
             tags=tags,
@@ -451,6 +452,7 @@ async def start_study_session(
     try:
         # Get flashcards for study session
         flashcards_data = get_flashcards(
+            user_id=user_id,
             limit=request.max_cards or 20,
             offset=0,
             tags=request.tags,
@@ -508,7 +510,7 @@ async def get_user_flashcard_stats(
         metrics = get_scheduling_metrics(user_id)
 
         # Get all user's flashcards to calculate total count
-        flashcards_data = get_flashcards(limit=1000, offset=0)
+        flashcards_data = get_flashcards(user_id=user_id, limit=1000, offset=0)
 
         return UserFlashcardStats(
             total_flashcards=metrics.total_cards,
@@ -539,28 +541,28 @@ async def generate_flashcards_from_text(
 ) -> FlashcardGenerationResponse:
     """
     Generate flashcards from raw text input.
-    
+
     This endpoint allows users to paste or type text content and
     automatically generate flashcards from it. Useful for creating
     flashcards from notes, articles, or any text content without
     needing to upload a file.
-    
+
     Args:
         text: Text content to generate flashcards from
         difficulty: Difficulty level (beginner, intermediate, advanced)
         limit: Maximum number of flashcards to generate (1-20)
         user_id: Authenticated user ID
         flashcard_gen: Flashcard generator instance
-        
+
     Returns:
         FlashcardGenerationResponse with generated flashcards
-        
+
     Raises:
         HTTPException: If text is invalid or generation fails
     """
     import logging
     logger = logging.getLogger(__name__)
-    
+
     try:
         # Validate text content
         text_content = text.strip()
@@ -569,41 +571,41 @@ async def generate_flashcards_from_text(
                 status_code=400,
                 detail="Text content is too short. Please provide at least 50 characters for meaningful flashcard generation."
             )
-        
+
         if len(text_content) > 10000:
             raise HTTPException(
                 status_code=400,
                 detail="Text content is too long. Please limit to 10,000 characters for optimal processing."
             )
-        
+
         # Validate difficulty level
         valid_difficulties = ['beginner', 'intermediate', 'advanced']
         if difficulty not in valid_difficulties:
             difficulty = 'intermediate'
-        
+
         # Validate limit
         if limit < 1 or limit > 20:
             limit = 8
-        
+
         # Split content into chunks for better processing
         content_chunks = [text_content[i:i+2000] for i in range(0, len(text_content), 2000)]
-        
+
         try:
             # Generate flashcards using the flashcard generator
             generated_flashcards = flashcard_gen.generate(
                 content_chunks[:5],  # Limit chunks for performance
                 difficulty
             )
-            
+
             # Limit to requested number of flashcards
             limited_flashcards = generated_flashcards[:limit]
-            
+
             if not limited_flashcards:
                 raise HTTPException(
                     status_code=400,
                     detail="Could not generate any flashcards from the provided text. Please try with different content."
                 )
-            
+
             # Save generated flashcards to database
             saved_flashcard_ids = []
             if limited_flashcards:
@@ -617,12 +619,12 @@ async def generate_flashcards_from_text(
                 except Exception as save_error:
                     logger.warning(f"Failed to save flashcards from text for user {user_id}: {str(save_error)}")
                     # Continue anyway - flashcards were generated successfully
-            
+
             # Convert to response format
             flashcard_responses = []
             for i, flashcard in enumerate(limited_flashcards):
                 flashcard_id = saved_flashcard_ids[i] if i < len(saved_flashcard_ids) else f"temp-text-{i}"
-                
+
                 flashcard_response = FlashcardResponse(
                     id=flashcard_id,
                     question=flashcard.get('question', ''),
@@ -638,20 +640,20 @@ async def generate_flashcards_from_text(
                     }
                 )
                 flashcard_responses.append(flashcard_response)
-            
+
             return FlashcardGenerationResponse(
                 flashcards=flashcard_responses,
                 total_generated=len(flashcard_responses),
                 source_type="text"
             )
-            
+
         except Exception as gen_error:
             logger.error(f"Flashcard generation from text failed for user {user_id}: {str(gen_error)}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to generate flashcards from text: {str(gen_error)}"
             )
-        
+
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
