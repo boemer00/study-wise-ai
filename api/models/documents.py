@@ -80,7 +80,7 @@ class DocumentDeleteResponse(BaseModel):
     """Response for document deletion operations."""
     document_id: str
     title: str
-    status: Literal['success', 'failed']
+    status: Literal['success', 'partial', 'failed']
     message: str
     errors: List[str] = Field(default_factory=list)
 

@@ -15,8 +15,13 @@ from pydantic import BaseModel
 
 security = HTTPBearer()
 
-# Simple JWT secret - use a strong secret in production
-JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
+# JWT secret - check multiple environment variables for compatibility
+JWT_SECRET = (
+    os.getenv('JWT_SECRET') or 
+    os.getenv('SUPABASE_JWT_SECRET') or 
+    os.getenv('SECRET_KEY') or 
+    'your-secret-key-change-in-production'
+)
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
@@ -40,6 +45,60 @@ class TokenResponse(BaseModel):
 
 # In-memory user store for MVP (replace with database for production)
 USERS_DB = {}
+
+# File-based persistence for MVP
+import json
+from pathlib import Path
+
+USER_STORE_FILE = Path("data/users.json")
+
+def load_users():
+    """Load users from file if exists."""
+    global USERS_DB
+    if USER_STORE_FILE.exists():
+        try:
+            with open(USER_STORE_FILE, 'r') as f:
+                data = json.load(f)
+                # Reconstruct User objects from JSON data
+                for email, user_data in data.items():
+                    user = User(
+                        id=user_data['user']['id'],
+                        email=user_data['user']['email'],
+                        created_at=datetime.fromisoformat(user_data['user']['created_at'])
+                    )
+                    USERS_DB[email] = {
+                        'user': user,
+                        'password_hash': user_data['password_hash']
+                    }
+                print(f"✅ Loaded {len(USERS_DB)} users from {USER_STORE_FILE}")
+        except Exception as e:
+            print(f"⚠️ Could not load users from file: {e}")
+
+def save_users():
+    """Save users to file."""
+    try:
+        USER_STORE_FILE.parent.mkdir(exist_ok=True)
+        # Convert datetime objects to strings for JSON serialization
+        data_to_save = {}
+        for email, user_data in USERS_DB.items():
+            data_copy = {
+                'user': {
+                    'id': user_data['user'].id,
+                    'email': user_data['user'].email,
+                    'created_at': user_data['user'].created_at.isoformat()
+                },
+                'password_hash': user_data['password_hash']
+            }
+            data_to_save[email] = data_copy
+            
+        with open(USER_STORE_FILE, 'w') as f:
+            json.dump(data_to_save, f, indent=2)
+        print(f"✅ Saved {len(USERS_DB)} users to {USER_STORE_FILE}")
+    except Exception as e:
+        print(f"⚠️ Could not save users to file: {e}")
+
+# Load existing users on startup
+load_users()
 
 def hash_password(password: str) -> str:
     """Simple password hashing"""
@@ -75,6 +134,9 @@ def register_user(email: str, password: str) -> User:
         'user': user,
         'password_hash': hash_password(password)
     }
+    
+    # Save to file for persistence
+    save_users()
     
     return user
 
@@ -129,6 +191,11 @@ async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
 # Create a demo user for testing
 def create_demo_user():
     """Create demo user for testing"""
+    # Only create demo user in development environment
+    environment = os.getenv('ENVIRONMENT', 'development')
+    if environment == 'production':
+        return
+        
     demo_email = "demo@studywise.ai"
     demo_password = "demo123"
     
@@ -139,5 +206,5 @@ def create_demo_user():
         except:
             pass  # User already exists
 
-# Initialize demo user
+# Initialize demo user only in development
 create_demo_user()

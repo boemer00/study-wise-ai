@@ -1,0 +1,26 @@
+{
+  "demo@studywise.ai": {
+    "user": {
+      "id": "f27570ba-0994-477d-bb88-7a477b42b97e",
+      "email": "demo@studywise.ai",
+      "created_at": "2025-06-23T18:51:01.416280"
+    },
+    "password_hash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791"
+  },
+  "newuser@example.com": {
+    "user": {
+      "id": "32f8b860-0f72-47c5-9752-1b8581c53774",
+      "email": "newuser@example.com",
+      "created_at": "2025-06-23T18:51:57.786946"
+    },
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f"
+  },
+  "persistent@example.com": {
+    "user": {
+      "id": "7ec5661e-ab8b-41c7-b7b6-6b2068818337",
+      "email": "persistent@example.com",
+      "created_at": "2025-06-23T18:52:20.150179"
+    },
+    "password_hash": "ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae"
+  }
+}
