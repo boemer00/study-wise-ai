@@ -2,44 +2,86 @@
 
 > **AI-Powered Learning Platform with FSRS Spaced Repetition & Advanced Study Modes**
 
-StudyWise AI transforms study materials into intelligent, interactive learning experiences using cutting-edge AI and educational psychology principles.
+StudyWise AI transforms study materials into intelligent, interactive learning experiences by combining proven educational psychology with state-of-the-art AI.
 
-## 🚀 Quick Start
+---
+
+## 🚀 Quick Start (Local Development)
 
 ```bash
-# 1. Clone and setup
+# 1. Clone and set up a virtual environment
 git clone <repository-url>
 cd study-wise-ai
 python -m venv study-env && source study-env/bin/activate
 pip install -r requirements.txt
 
-# 2. Configure environment
+# 2. Configure environment variables
 cp .env.example .env
 # Edit .env with your API keys
 
-# 3. Generate secure production key
+# 3. Generate a secure secret key (production only)
 python scripts/generate_secret_key.py
 
-# 4. Install validation system
-python scripts/install_pre_commit_hook.py
-
-# 5. Start demo server
+# 4. Run the development server
 python start_local_demo.py  # http://localhost:8000
 ```
 
+---
+
+## 🌐 Production Deployment — Google Cloud Run
+
+StudyWise AI ships with first-class support for Google Cloud Run. Two options are provided.
+
+### 1. One-Command Deployment using `deploy.sh`
+
+```bash
+./deploy.sh                      # backend only, Cloud Build + Cloud Run
+```
+
+The script will:
+1. Enable required GCP APIs (Cloud Build, Cloud Run, Container Registry).
+2. Build the container image and push it to Container Registry.
+3. Deploy the image to Cloud Run with recommended CPU, memory, and scaling parameters.
+4. Output the live service URL so that it can be added to the frontend or CORS configuration.
+
+### 2. Cloud Build Trigger (`cloudbuild.yaml`)
+
+Add a build trigger in the Cloud Console that points to the repository and references the included `cloudbuild.yaml`. Every push to `main` will then:
+
+1. Build the Docker image `gcr.io/$PROJECT_ID/studywise-api:$COMMIT_SHA`.
+2. Push it to Container Registry.
+3. Deploy the image to Cloud Run (region `us-central1`, service name `studywise-api`).
+
+A minimal manual invocation looks like this:
+
+```bash
+# From the project root
+gcloud builds submit --config cloudbuild.yaml
+```
+
+Once deployment finishes, retrieve the service URL:
+
+```bash
+SERVICE_URL=$(gcloud run services describe studywise-api \
+             --region us-central1 \
+             --format="value(status.url)")
+echo "Backend available at $SERVICE_URL"
+```
+
+> **Tip :** To deploy the companion React frontend as well, see `deploy-both.sh`, which builds and deploys both images and automatically wires the frontend's `VITE_API_URL` to the new backend URL.
+
+---
+
 ## 🌟 Core Features
 
-### 🧠 **Advanced Study Modes**
-- **FeynmanMode**: Learn by teaching with real-time quality analysis and feedback
-- **FSRS Flashcards**: Scientific spaced repetition with 17-parameter algorithm
-- **TraditionalMode**: Classic Q&A with adaptive difficulty
+### 🧠 **Flashcards**
+- **FSRS Algorithm**: Scientific spaced repetition with 17-parameter algorithm for your flashcards
 - **Document Processing**: PDF/DOCX upload with semantic search
 
 ### 🔍 **Intelligent Processing**
 - **Hybrid Architecture**: Weaviate (vector) + Supabase (relational)
-- **Semantic Search**: OpenAI embeddings with similarity scoring
+- **Semantic Search**: OpenAI embeddings with similarity scoring --> Talk to you database.
 - **Real-time Analytics**: Comprehensive learning insights and progress tracking
-- **Voice AI Ready**: Prepared for TTS/STT integration
 
 ### 🎯 **Production Ready**
 - **FastAPI Backend**: High-performance API with 36+ endpoints
@@ -56,7 +98,7 @@ python start_local_demo.py  # http://localhost:8000
 ```
 
 **Key Components:**
-- **Study Modes Framework**: FeynmanMode, Traditional, FSRS Flashcards
+- **Study Framework**: FSRS Flashcards
 - **Document Processing**: PDF/DOCX handlers with intelligent chunking
 - **Vector Search**: Semantic document retrieval and similarity
 - **Analytics Engine**: Learning progress and personalized recommendations
@@ -65,14 +107,11 @@ python start_local_demo.py  # http://localhost:8000
 
 ### **Multi-Layer Validation System**
 ```bash
-# Quick validation (5 tests, ~1 second)
+# Quick sanity check (≈ 1 second)
 python scripts/pre_merge_validation.py --quick
 
-# Full validation (9 tests, ~45 seconds)  
+# Full test suite (≈ 45 seconds)
 python scripts/pre_merge_validation.py
-
-# Production environment testing
-python scripts/pre_merge_validation.py --environment prod
 ```
 
 ### **Automated Protection**
@@ -82,7 +121,6 @@ python scripts/pre_merge_validation.py --environment prod
 
 ### **Test Coverage**
 - ✅ **442 tests collected** across all modules
-- ✅ **Study Modes**: 30/30 comprehensive tests passing
 - ✅ **FSRS Algorithm**: Integration tests with real scheduling
 - ✅ **API Endpoints**: All 36 routes validated
 
@@ -188,20 +226,6 @@ python scripts/pre_merge_validation.py
 3. **Ensure tests pass**: All validation must pass before merge
 4. **Document changes**: Update relevant documentation
 
-## 🔮 Roadmap
-
-### **Phase 1: Production Deployment**
-- [x] **Security**: Environment-based secret management
-- [x] **Validation**: Multi-layer testing system  
-- [ ] **Infrastructure**: Docker containerization
-- [ ] **Monitoring**: Structured logging and health checks
-
-### **Phase 2: Advanced Features**
-- [ ] **SocraticMode**: Guided questioning and discovery
-- [ ] **DebateMode**: Argumentative learning
-- [ ] **Voice Integration**: 11Labs TTS/STT
-- [ ] **Multimodal**: Image and video processing
-
 ## 📖 Documentation
 
 - **[Production Security Guide](docs/PRODUCTION_SECURITY.md)**: Secret management & deployment
@@ -250,3 +274,5 @@ python start_local_demo.py          # Demo server with all features
 **StudyWise AI - Transforming Learning Through Teaching** 🧠✨
 
 *Built with modern AI, educational psychology, and comprehensive validation*
+
+© 2025 Renato Boemer. All rights reserved.
