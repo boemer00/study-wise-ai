@@ -85,6 +85,32 @@ class VectorClient:
         logger.warning("delete_document not supported by underlying client")
         return False
 
+    async def hybrid_search_chunks(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        filters: Optional[dict] = None,
+        alpha: float = 0.5,
+    ) -> List[dict]:
+        """Perform hybrid keyword + vector search and return raw chunk dicts.
+
+        This wraps :py:meth:`WeaviateClient.search_hybrid_chunks` provided by
+        the legacy client but executes it in an *async* manner from the caller
+        perspective.
+        """
+
+        client = self._ensure_client()
+
+        # The legacy client method is already ``async``; just await it.
+        return await client.search_hybrid_chunks(  # type: ignore[attr-defined]
+            query_text=query,
+            query_vector=None,  # let the legacy method embed if needed
+            limit=limit,
+            where_clause=filters,
+            alpha=alpha,
+        )
+
     # ------------------------------------------------------------------
     # Connection management
     # ------------------------------------------------------------------

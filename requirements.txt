@@ -118,3 +118,8 @@ requests-mock==1.12.1
 # Enhanced PDF processing (requires poppler system dependency)
 # pdfminer.six==20221105  # Currently installed but optional
 # pdf2image  # Not currently installed
+
+# Neural reranking dependencies (Hybrid Search)
+torch>=2.0.1
+sentence-transformers>=2.6.1
+transformers>=4.41.0

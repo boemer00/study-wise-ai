@@ -50,7 +50,9 @@ class ContextRetriever:
         vector_client: Optional[VectorClient] = None,
         max_chunks_per_query: int = 10,
         similarity_threshold: float = 0.7,
-        rerank_enabled: bool = True
+        rerank_enabled: bool = True,
+        use_hybrid: bool = True,
+        use_neural_rerank: bool = True
     ) -> None:
         """
         Initialize context retriever.
@@ -63,6 +65,8 @@ class ContextRetriever:
             max_chunks_per_query: Maximum chunks to retrieve per query
             similarity_threshold: Minimum similarity score for relevance
             rerank_enabled: Whether to use reranking for better results
+            use_hybrid: Whether to use hybrid search
+            use_neural_rerank: Whether to use neural reranking
         """
         # Prefer the new VectorClient wrapper when not explicitly provided.
         if weaviate_client is None and vector_client is None:
@@ -80,6 +84,19 @@ class ContextRetriever:
         self.max_chunks_per_query = max_chunks_per_query
         self.similarity_threshold = similarity_threshold
         self.rerank_enabled = rerank_enabled
+        self.use_hybrid = use_hybrid
+        self.use_neural_rerank = use_neural_rerank
+
+        # Optional neural reranker
+        self.neural_reranker = None
+        if self.use_neural_rerank:
+            try:
+                from src.conversation.reranker import NeuralReranker
+
+                self.neural_reranker = NeuralReranker()
+            except Exception as e:  # pragma: no cover
+                logger.warning("Neural reranker disabled: %s", e)
+                self.neural_reranker = None
 
         # Question type patterns for classification
         self.question_patterns = {
@@ -340,25 +357,38 @@ Classification (one word only):"""
             SearchError: If document search fails
         """
         try:
-            # Get query embedding
+            # Compute query embedding (needed for vector and hybrid fusion)
             query_embedding = await self._get_query_embedding(enhanced_query)
 
-            # Prepare Weaviate query
-            where_clause = {}
-            if document_filters and 'document_ids' in document_filters:
+            # Prepare Weaviate where clause from document filters
+            where_clause: Dict[str, Any] = {}
+            if document_filters and "document_ids" in document_filters:
                 where_clause = {
                     "path": ["document_id"],
                     "operator": "ContainsAny",
-                    "valueTextArray": document_filters['document_ids']
+                    "valueTextArray": document_filters["document_ids"],
                 }
 
-            # Perform vector search using existing WeaviateClient
-            search_results = await self.weaviate_client.search_similar_chunks(
-                query_vector=query_embedding,
-                limit=limit,
-                where_clause=where_clause if where_clause else None,
-                distance_threshold=1.0 - self.similarity_threshold  # Convert similarity to distance
-            )
+            # ------------------------------------------------------------------
+            # Execute search (hybrid or vector-only)
+            # ------------------------------------------------------------------
+            if self.use_hybrid and hasattr(self.weaviate_client, "search_hybrid_chunks"):
+                search_results = await self.weaviate_client.search_hybrid_chunks(  # type: ignore[attr-defined]
+                    query_text=enhanced_query,
+                    query_vector=query_embedding,
+                    limit=limit,
+                    where_clause=where_clause if where_clause else None,
+                    alpha=0.5,
+                    distance_threshold=1.0 - self.similarity_threshold,
+                )
+            else:
+                # Fallback to vector-only search
+                search_results = await self.weaviate_client.search_similar_chunks(
+                    query_vector=query_embedding,
+                    limit=limit,
+                    where_clause=where_clause if where_clause else None,
+                    distance_threshold=1.0 - self.similarity_threshold,
+                )
 
             # Convert to DocumentSource objects
             document_sources = []
@@ -412,8 +442,22 @@ Classification (one word only):"""
             Reranked list of document sources
         """
         try:
+            # Fast exit for trivial cases
             if len(initial_results) <= 1:
                 return initial_results
+
+            # ------------------------------------------------------------------
+            # Neural reranking pathway
+            # ------------------------------------------------------------------
+            if self.use_neural_rerank and self.neural_reranker is not None:
+                try:
+                    return await self.neural_reranker.rerank(
+                        query,
+                        initial_results,
+                        top_k=len(initial_results),
+                    )
+                except Exception as e:
+                    logger.warning("Neural reranking failed, falling back: %s", e)
 
             # Calculate context relevance scores
             reranked_results = []

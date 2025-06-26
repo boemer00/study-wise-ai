@@ -261,12 +261,12 @@ class WeaviateClient:
 
             # Build where filter with user_id isolation
             where_filter = None
-            
+
             # Always filter by user_id for data isolation
             if user_id:
                 user_filter = wvc.query.Filter.by_property("user_id").equal(user_id)
                 where_filter = user_filter
-            
+
             # Add additional filters if provided
             if where_clause:
                 additional_filter = self._build_where_filter(where_clause)
@@ -322,7 +322,7 @@ class WeaviateClient:
                 # Get metadata safely - handle None values
                 metadata_raw = obj.properties.get('metadata')
                 metadata = self._parse_metadata(metadata_raw) if metadata_raw else {}
-                
+
                 result = {
                     'document_id': obj.properties.get('document_id', ''),
                     'chunk_id': obj.properties.get('chunk_id', str(obj.uuid)),
@@ -342,6 +342,112 @@ class WeaviateClient:
 
         except Exception as e:
             self.logger.error(f"Chunk search failed: {e}")
+            return []
+
+    async def search_hybrid_chunks(
+        self,
+        query_text: str,
+        query_vector: Optional[List[float]] = None,
+        user_id: Optional[str] = None,
+        limit: int = 10,
+        where_clause: Optional[Dict[str, Any]] = None,
+        alpha: float = 0.5,
+        distance_threshold: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """Hybrid search combining BM25F and vector similarity.
+
+        Parameters
+        ----------
+        query_text
+            The search query text.
+        query_vector
+            Optional pre-computed embedding of the query. When provided, it is
+            used for the vector half of the hybrid search. If *None*, Weaviate
+            will auto-embed using the collection's vectorizer.
+        user_id
+            Optional user id to isolate data.
+        limit
+            Maximum number of chunks to return.
+        where_clause
+            Additional Weaviate where filter.
+        alpha
+            The fusion weight (0 = keyword only, 1 = vector only).
+        distance_threshold
+            Maximum vector distance (converted to similarity) allowed in
+            results.
+        """
+        try:
+            collection = self.client.collections.get("Document")
+
+            # ------------------------------------------------------------------
+            # Build where filter with user isolation and extra filters
+            # ------------------------------------------------------------------
+            where_filter = None
+
+            if user_id:
+                where_filter = wvc.query.Filter.by_property("user_id").equal(user_id)
+
+            if where_clause:
+                additional_filter = self._build_where_filter(where_clause)
+                where_filter = additional_filter if where_filter is None else where_filter & additional_filter
+
+            # ------------------------------------------------------------------
+            # Execute hybrid search
+            # ------------------------------------------------------------------
+            kwargs: Dict[str, Any] = {
+                "query": query_text,
+                "limit": limit,
+                "alpha": alpha,
+                "return_metadata": wvc.query.MetadataQuery(certainty=True, distance=True),
+            }
+            if query_vector is not None:
+                kwargs["vector"] = query_vector
+            if where_filter is not None:
+                kwargs["where"] = where_filter
+
+            response = collection.query.hybrid(**kwargs)
+
+            # ------------------------------------------------------------------
+            # Convert to RAG-friendly dict format (mirror search_similar_chunks)
+            # ------------------------------------------------------------------
+            results: List[Dict[str, Any]] = []
+            for obj in response.objects:
+                # Some objects may lack distance when certainty available.
+                distance: float
+                if hasattr(obj.metadata, "distance") and obj.metadata.distance is not None:
+                    distance = float(obj.metadata.distance)
+                else:
+                    # Convert certainty (higher is better) into pseudo-distance
+                    certainty = getattr(obj.metadata, "certainty", 0.0)
+                    distance = 1.0 - float(certainty)
+
+                if distance > distance_threshold:
+                    # Skip low-similarity hits
+                    continue
+
+                metadata_raw = obj.properties.get("metadata")
+                metadata = self._parse_metadata(metadata_raw) if metadata_raw else {}
+
+                results.append(
+                    {
+                        "document_id": obj.properties.get("document_id", ""),
+                        "chunk_id": obj.properties.get("chunk_id", str(obj.uuid)),
+                        "title": obj.properties.get("title", ""),
+                        "content": obj.properties.get("content", ""),
+                        "page_number": obj.properties.get("page_number"),
+                        "metadata": metadata,
+                        "_additional": {
+                            "distance": distance,
+                            "id": str(obj.uuid),
+                        },
+                    }
+                )
+
+            self.logger.debug("Hybrid search returned %d chunks", len(results))
+            return results
+
+        except Exception as e:
+            self.logger.error("Hybrid chunk search failed: %s", e)
             return []
 
     def _build_where_filter(self, where_clause: Dict[str, Any]) -> wvc.query.Filter:
@@ -569,13 +675,13 @@ class WeaviateClient:
 
             # Build where filter with user_id isolation
             conditions = []
-            
+
             # Always filter by user_id for data isolation
             if user_id:
                 conditions.append(
                     wvc.query.Filter.by_property("user_id").equal(user_id)
                 )
-            
+
             # Add additional filters if provided
             if filters:
                 if "tags" in filters:
