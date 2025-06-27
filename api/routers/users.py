@@ -5,8 +5,12 @@ User profile and statistics API routes
 from typing import List, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import BackgroundTasks
 
 from api.core.dependencies import get_current_user_id
+
+# Service stub to be implemented
+from api.services.user_cleanup import purge_user_data
 
 
 router = APIRouter()
@@ -45,9 +49,9 @@ async def get_user_profile(
                 "features": ["basic_flashcards", "ai_chat", "document_upload"]
             }
         }
-        
+
         return profile
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -121,7 +125,7 @@ async def get_user_conversations(
                 "status": "active"
             },
             {
-                "conversation_id": "conv-002", 
+                "conversation_id": "conv-002",
                 "title": "Python Programming Help",
                 "topic_focus": "Data Structures",
                 "created_at": datetime.utcnow().isoformat(),
@@ -130,11 +134,33 @@ async def get_user_conversations(
                 "status": "active"
             }
         ]
-        
+
         return conversations
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get user conversations: {str(e)}"
         )
+
+
+# --------------------------------------------------------------------------
+# Account deletion route (scaffold)
+# --------------------------------------------------------------------------
+
+
+@router.delete("/me", status_code=204, summary="Delete current user account")
+async def delete_current_user(
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id),
+) -> None:
+    """Request permanent deletion of the authenticated user.
+
+    The heavy-lifting is delegated to a background task to avoid request
+    timeout. Actual purge logic lives in :pyfunc:`purge_user_data`.
+    """
+
+    # Schedule asynchronous purge (implementation TBD)
+    background_tasks.add_task(purge_user_data, user_id)
+
+    # 204 No Content returned implicitly
