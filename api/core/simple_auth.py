@@ -17,9 +17,9 @@ security = HTTPBearer()
 
 # JWT secret - check multiple environment variables for compatibility
 JWT_SECRET = (
-    os.getenv('JWT_SECRET') or 
-    os.getenv('SUPABASE_JWT_SECRET') or 
-    os.getenv('SECRET_KEY') or 
+    os.getenv('JWT_SECRET') or
+    os.getenv('SUPABASE_JWT_SECRET') or
+    os.getenv('SECRET_KEY') or
     'your-secret-key-change-in-production'
 )
 JWT_ALGORITHM = 'HS256'
@@ -90,7 +90,7 @@ def save_users():
                 'password_hash': user_data['password_hash']
             }
             data_to_save[email] = data_copy
-            
+
         with open(USER_STORE_FILE, 'w') as f:
             json.dump(data_to_save, f, indent=2)
         print(f"✅ Saved {len(USERS_DB)} users to {USER_STORE_FILE}")
@@ -122,89 +122,89 @@ def register_user(email: str, password: str) -> User:
     """Register a new user"""
     if email in USERS_DB:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     user_id = str(uuid.uuid4())
     user = User(
         id=user_id,
         email=email,
         created_at=datetime.utcnow()
     )
-    
+
     USERS_DB[email] = {
         'user': user,
         'password_hash': hash_password(password)
     }
-    
+
     # Save to file for persistence
     save_users()
-    
+
     return user
 
 def authenticate_user(email: str, password: str) -> Optional[User]:
     """Authenticate user with email/password"""
     if email not in USERS_DB:
         return None
-    
+
     user_data = USERS_DB[email]
     if not verify_password(password, user_data['password_hash']):
         return None
-    
+
     return user_data['user']
 
 async def get_current_user_id(token: Optional[str] = Depends(security)) -> str:
     """Extract user ID from JWT token"""
-    # For MVP: if no token provided, use demo user
     if not token or not token.credentials:
-        print("🚀 No token provided, using demo user")
-        # Find demo user ID
-        for email, data in USERS_DB.items():
-            if email == "demo@studywise.ai":
-                return data['user'].id
-        # Fallback to a fixed demo UUID
-        return "550e8400-e29b-41d4-a716-446655440000"
-    
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
     try:
         payload = jwt.decode(token.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
-        
+
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
             )
-        
+
         return user_id
-        
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired"
         )
     except jwt.PyJWTError:
-        # For MVP: if token is invalid, fall back to demo user
-        print("⚠️ Invalid token, using demo user")
-        for email, data in USERS_DB.items():
-            if email == "demo@studywise.ai":
-                return data['user'].id
-        return "550e8400-e29b-41d4-a716-446655440000"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
 
-# Create a demo user for testing
-def create_demo_user():
-    """Create demo user for testing"""
-    # Only create demo user in development environment
-    environment = os.getenv('ENVIRONMENT', 'development')
-    if environment == 'production':
-        return
-        
-    demo_email = "demo@studywise.ai"
-    demo_password = "demo123"
-    
-    if demo_email not in USERS_DB:
-        try:
-            register_user(demo_email, demo_password)
-            print(f"✅ Demo user created: {demo_email} / {demo_password}")
-        except:
-            pass  # User already exists
 
-# Initialize demo user only in development
-create_demo_user()
+class SimpleAuth:
+    def delete_user(self, *, email: str | None = None, user_id: str | None = None) -> bool:
+        """Remove a user from the in-memory & file JSON store.
+
+        Either *email* or *user_id* must be provided. Returns ``True`` if a
+        record was actually removed.
+        """
+
+        if not email and not user_id:
+            raise ValueError("email or user_id must be provided")
+
+        # Resolve email if only user_id given
+        if not email:
+            for em, data in USERS_DB.items():
+                if data["user"].id == user_id:
+                    email = em
+                    break
+
+        if not email or email not in USERS_DB:
+            return False
+
+        # Remove from in-memory store and persist to disk
+        USERS_DB.pop(email, None)
+        save_users()
+        return True
